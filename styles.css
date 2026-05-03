@@ -675,6 +675,97 @@ body.quarto-dark .observablehq select {
 
 @keyframes visible-spin { to { transform: rotate(360deg); } }
 
+.upload-status-row {
+  display: flex;
+  align-items: center;
+  gap: 0.4em;
+  margin-bottom: 0.6em;
+}
+
+.upload-progress {
+  display: flex;
+  align-items: center;
+  gap: 0.6em;
+  margin-bottom: 0.4em;
+}
+
+.upload-progress progress {
+  flex: 1 1 auto;
+  height: 0.55em;
+  appearance: none;
+  -webkit-appearance: none;
+  border: none;
+  border-radius: 999px;
+  background: rgba(142, 58, 74, 0.12);
+  overflow: hidden;
+}
+
+.upload-progress progress::-webkit-progress-bar {
+  background: rgba(142, 58, 74, 0.12);
+  border-radius: 999px;
+}
+.upload-progress progress::-webkit-progress-value {
+  background: var(--rust);
+  border-radius: 999px;
+  transition: width 0.3s ease;
+}
+.upload-progress progress::-moz-progress-bar {
+  background: var(--rust);
+  border-radius: 999px;
+}
+
+.upload-progress progress:not([value]) {
+  /* Indeterminate animated bar */
+  background: linear-gradient(
+    90deg,
+    rgba(142, 58, 74, 0.10) 0%,
+    var(--rust) 50%,
+    rgba(142, 58, 74, 0.10) 100%
+  );
+  background-size: 200% 100%;
+  animation: upload-pulse 1.4s linear infinite;
+}
+
+@keyframes upload-pulse {
+  0% { background-position: 100% 0; }
+  100% { background-position: -100% 0; }
+}
+
+.upload-check {
+  display: inline-block;
+  width: 1.1em;
+  height: 1.1em;
+  line-height: 1.1em;
+  text-align: center;
+  border-radius: 50%;
+  background: var(--rust, #8E3A4A);
+  color: #fff;
+  font-weight: 700;
+  font-size: 0.8em;
+  flex-shrink: 0;
+}
+
+.upload-status-help {
+  font-size: 0.85em;
+  color: var(--muted, #566365);
+  line-height: 1.4;
+}
+
+body.quarto-dark .upload-progress progress {
+  background: rgba(237, 175, 184, 0.18);
+}
+body.quarto-dark .upload-progress progress::-webkit-progress-bar {
+  background: rgba(237, 175, 184, 0.18);
+}
+body.quarto-dark .upload-progress progress::-webkit-progress-value,
+body.quarto-dark .upload-progress progress::-moz-progress-bar {
+  background: var(--blush, #EDAFB8);
+}
+body.quarto-dark .upload-progress-label,
+body.quarto-dark .upload-status-help {
+  color: var(--ink-soft, #DEDBD2);
+}
+
 /* ---------- exercise / chart cells ---------- */
 
 .cell, .exercise-cell {
@@ -924,6 +1015,19 @@ input[type="file"]:focus-visible {
    visual treatment lives in the .empty-state-hint block above. */
 
 body:not(.has-data) .analysis-section { display: none; }
+
+/* While R is still booting / parsing, hide chart sections and chapter chrome
+   so users don't see "drawing" loaders for sections that have no data yet.
+   The setup-data cell is hidden too, but display:none does NOT prevent its
+   JavaScript / WebR execution — its STEP/READY text still streams into the
+   DOM and drives the upload-status observer above. */
+body.has-data:not(.data-ready) .analysis-section,
+body.has-data:not(.data-ready) .chapter-num,
+body.has-data:not(.data-ready) main h2.chapter-title,
+body.has-data:not(.data-ready) main .chapter-lede {
+  display: none;
+}
+
 .empty-state-hint { display: none; }
 body:not(.has-data) .empty-state-hint { display: block; }
 
@@ -1023,4 +1127,298 @@ body:not(.has-data) .empty-state-hint { display: block; }
   }
   main h2 { margin-top: 3rem; }
   hr { margin: 2.6rem auto; }
+}
+
+/* ---------- floating "Print report" button ----------
+   Appears bottom-right once the user has loaded data. The print
+   stylesheet itself hides this button so it never appears on paper. */
+
+.print-report {
+  position: fixed;
+  bottom: clamp(1rem, 3vw, 1.6rem);
+  right: clamp(1rem, 3vw, 1.6rem);
+  z-index: 100;
+  display: none;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.55rem 0.95rem 0.55rem 0.85rem;
+  font-family: var(--font-body);
+  font-size: 0.85rem;
+  font-weight: 480;
+  letter-spacing: 0.01em;
+  color: var(--ink-soft);
+  background: var(--paper-card);
+  border: 1px solid var(--rule);
+  border-radius: 999px;
+  box-shadow: 0 2px 10px rgba(46, 36, 30, 0.08);
+  cursor: pointer;
+  transition: transform 120ms ease, box-shadow 120ms ease,
+              border-color 120ms ease, color 120ms ease;
+}
+.print-report:hover {
+  border-color: var(--rust);
+  color: var(--rust-deep);
+  box-shadow: 0 3px 14px rgba(46, 36, 30, 0.12);
+  transform: translateY(-1px);
+}
+.print-report:focus-visible {
+  outline: 2px solid var(--rust);
+  outline-offset: 3px;
+}
+.print-report svg { color: var(--rust); }
+
+body.has-data .print-report { display: inline-flex; }
+
+body.quarto-dark .print-report {
+  color: #DEDBD2;
+  background: #2F3839;
+  border-color: #4A5759;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
+}
+body.quarto-dark .print-report:hover {
+  border-color: var(--rose-soft);
+  color: var(--rose-soft);
+}
+body.quarto-dark .print-report svg { color: var(--rose-soft); }
+
+
+/* =============================================================
+   Print stylesheet — a calm, ink-friendly version of the report.
+   Goal: keep the headline numbers, chapter ledes, and plots
+   front-and-centre; strip UI chrome; lose the cream paper and
+   noise so toner doesn't get spent on decoration.
+   ============================================================= */
+
+@media print {
+  /* Sensible page margins for letter and A4 alike */
+  @page { margin: 1.6cm 1.8cm; }
+
+  /* White paper, dark ink, drop the parchment noise overlay */
+  html, body {
+    background: #ffffff !important;
+    color: #1a1a1a !important;
+    font-family: var(--font-body);
+    font-size: 10.5pt;
+    line-height: 1.45;
+  }
+  body::before { display: none !important; }
+
+  /* Plots must keep their colour fills (browsers default to "economy") */
+  img, svg, .cell-output-display, .quarto-figure {
+    print-color-adjust: exact;
+    -webkit-print-color-adjust: exact;
+  }
+
+  /* Strip app chrome and anything interactive */
+  nav.navbar,
+  #quarto-margin-sidebar,
+  .sidebar,
+  nav#TOC,
+  #TOC,
+  aside.toc,
+  .toc-active aside,
+  .page-footer,
+  footer.footer,
+  footer,
+  .quarto-search,
+  .anchorjs-link,
+  .code-copy-button,
+  .exercise-loading-indicator,
+  .observablehq form,
+  .observablehq input[type="file"],
+  .observablehq select,
+  button,
+  .print-report,
+  .callout-note,
+  .empty-state-hint,
+  .upload-status,
+  div.sourceCode,
+  pre.sourceCode,
+  .cell-input,
+  .cell .sourceCode {
+    display: none !important;
+  }
+
+  /* Within the upload section, keep only the hero summary block and
+     the trailing "Chapter I" eyebrow (Pandoc tucks it into this section
+     because in the source it sits before the next H2). */
+  section#upload-your-data > *:not(:has(.hero-summary)):not(.chapter-num) {
+    display: none !important;
+  }
+  section#upload-your-data {
+    border: none !important;
+    padding: 0 !important;
+    margin: 0 !important;
+  }
+
+  /* page-layout: full breaks on paper — restore a normal measure */
+  main.content,
+  #quarto-document-content,
+  .quarto-container.page-layout-full,
+  .quarto-container {
+    max-width: none !important;
+    width: 100% !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+
+  /* Title block — keep identity, drop the long privacy description */
+  #title-block-header.quarto-title-block.default {
+    border: none !important;
+    border-bottom: 1pt solid #888 !important;
+    padding: 0 0 0.7rem !important;
+    margin: 0 0 1rem !important;
+    background: #fff !important;
+  }
+  #title-block-header.quarto-title-block.default::before {
+    display: none !important;
+  }
+  #title-block-header .quarto-title h1.title {
+    font-size: 22pt !important;
+    margin: 0 !important;
+    color: #1a1a1a !important;
+  }
+  #title-block-header .subtitle {
+    font-size: 11pt !important;
+    color: #444 !important;
+    font-style: italic;
+    margin-top: 0.3rem !important;
+  }
+  #title-block-header .description { display: none !important; }
+
+  /* Hero summary — the headline stats, framed minimally */
+  .hero-summary {
+    border-top: 1pt solid #999 !important;
+    border-bottom: 1pt solid #999 !important;
+    padding: 0.7rem 0 !important;
+    margin: 0.5rem 0 1.4rem !important;
+    background: transparent !important;
+    page-break-inside: avoid;
+    break-inside: avoid;
+  }
+  .hero-summary p {
+    font-size: 13pt !important;
+    color: #1a1a1a !important;
+    line-height: 1.4 !important;
+    max-width: none !important;
+  }
+  .hero-summary strong { color: #6b3a3a !important; }
+
+  /* Each chapter starts on a new page */
+  main .chapter-num {
+    break-before: page;
+    page-break-before: always;
+    margin: 0 0 0.5rem !important;
+    color: #6b3a3a !important;
+    font-size: 8.5pt;
+  }
+  main h2.chapter-title {
+    break-after: avoid;
+    page-break-after: avoid;
+    font-size: 22pt !important;
+    margin: 0 0 0.5rem !important;
+    color: #1a1a1a !important;
+    line-height: 1.1;
+  }
+  main h2.chapter-title::before { display: none !important; }
+  main .chapter-lede {
+    break-after: avoid;
+    page-break-after: avoid;
+    color: #444 !important;
+    font-size: 11.5pt !important;
+    margin: 0 0 1rem !important;
+    max-width: none !important;
+  }
+
+  /* Section headings stay attached to their content */
+  main h3 {
+    break-after: avoid;
+    page-break-after: avoid;
+    font-size: 13pt !important;
+    margin: 1rem 0 0.4rem !important;
+  }
+
+  /* Per-section computed facts — the prominent insight per chart.
+     Boxed only with a thin rust rule on the left, no fill. */
+  .section-fact {
+    font-size: 11pt !important;
+    color: #1a1a1a !important;
+    background: transparent !important;
+    border-left: 2pt solid #6b3a3a !important;
+    padding: 0.15rem 0 0.15rem 0.7rem !important;
+    margin: 0.4rem 0 0.9rem !important;
+    max-width: none !important;
+    page-break-inside: avoid;
+    break-inside: avoid;
+  }
+  .section-fact strong { color: #6b3a3a !important; }
+
+  /* Plots — keep them whole, scale to page width */
+  .cell-output-display,
+  .quarto-figure,
+  figure {
+    break-inside: avoid;
+    page-break-inside: avoid;
+    margin: 0.4rem 0 0.9rem !important;
+  }
+  .cell-output-display img,
+  .cell-output img,
+  .quarto-figure img,
+  .cell-output-display svg {
+    max-width: 100% !important;
+    height: auto !important;
+  }
+
+  /* Notes & anomaly lists — flatten the scroll and keep rows together */
+  .notes-list {
+    max-height: none !important;
+    overflow: visible !important;
+    border-color: #999 !important;
+  }
+  .notes-summary { color: #6b3a3a !important; }
+  .note-row {
+    break-inside: avoid;
+    page-break-inside: avoid;
+    border-bottom: 1px solid #ddd !important;
+    padding: 0.4rem 0 !important;
+  }
+  .anom-pill {
+    background: transparent !important;
+    border: 1px solid #999 !important;
+    color: #1a1a1a !important;
+  }
+
+  /* Decorative HRs lose their fancy fleuron */
+  hr {
+    margin: 1.2rem auto;
+    background: #ccc;
+  }
+  hr::before { display: none !important; }
+
+  /* Final non-chapter sections (honest reminders, what's next) */
+  main h2 {
+    break-after: avoid;
+    page-break-after: avoid;
+    font-size: 16pt !important;
+    margin-top: 1.5rem;
+  }
+  main ul, main ol { padding-left: 1.4rem; }
+  main li { margin: 0.25rem 0; }
+
+  /* Drop expensive backgrounds and shadows everywhere */
+  .hero-summary,
+  .section-fact,
+  .notes-list,
+  .note-row,
+  pre, code {
+    background: transparent !important;
+    box-shadow: none !important;
+  }
+
+  /* Links: muted underline, no inline URL noise */
+  a, a:visited {
+    color: #1a1a1a !important;
+    text-decoration: underline;
+    text-decoration-color: #999 !important;
+  }
 }
