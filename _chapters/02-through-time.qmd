@@ -1,0 +1,194 @@
+::: {.chapter-num}
+Chapter II
+:::
+
+## Through time {.chapter-title}
+
+::: {.chapter-lede}
+A year of mornings becomes a year of measurements.
+Three numbers carry most of the weight in Visible — Stability Score, Heart Rate Variability (HRV), and Resting Heart Rate — and looking at how they've moved is usually where insight starts.
+:::
+
+::: {.analysis-section}
+
+### Smoothed trends
+
+Each dot is one day.
+The curved line through the dots is a **trend line** — it ignores the noise of any one morning and shows the underlying direction.
+Look for the slope of that line: a slow climb in HRV or Stability over months is a real signal even if any individual day looks all over the place.
+A drift downward in HRV alongside a climb in Resting Heart Rate is a classic pattern when the body is under more strain than usual.
+The two **shaded bands** are the *most stable* and *hardest* stretches called out at the top of the page — drawn here so you can see where they sit on the underlying timeline of all three measures.
+
+```{webr}
+#| label: chart-trends
+#| input: ["fileText", "darkMode"]
+
+if (exists("visible")) {
+  viz <- viz_theme(darkMode)
+
+  stretch_layers <- list()
+  if (!is.null(best_stretch)) {
+    stretch_layers <- c(stretch_layers, list(
+      annotate("rect",
+               xmin = best_stretch$start, xmax = best_stretch$end,
+               ymin = -Inf, ymax = Inf,
+               fill = viz$secondary, alpha = 0.18)
+    ))
+  }
+  if (!is.null(worst_stretch)) {
+    stretch_layers <- c(stretch_layers, list(
+      annotate("rect",
+               xmin = worst_stretch$start, xmax = worst_stretch$end,
+               ymin = -Inf, ymax = Inf,
+               fill = viz$accent, alpha = 0.18)
+    ))
+  }
+
+  subtitle_extra <- if (length(stretch_layers) > 0) {
+    " · green band = most stable stretch · pink band = hardest"
+  } else ""
+
+  visible |>
+    filter(tracker %in% c("HR Variability", "Resting HR",
+                                 "Stability Score")) |>
+    ggplot(aes(odate, value)) +
+    stretch_layers +
+    year_marks(visible$odate, viz, is_multi_year) +
+    geom_point(alpha = 0.3, colour = viz$secondary) +
+    geom_smooth(method = "loess", formula = y ~ x, se = TRUE,
+                colour = viz$accent, fill = viz$accent_soft) +
+    facet_wrap(~ tracker, scales = "free_y", ncol = 1) +
+    labs(x = NULL, y = NULL,
+         title = "Core measurements over time",
+         subtitle = paste0(
+           if (is_multi_year)
+             "Each dot is a day · dotted lines mark new years"
+           else
+             "Each dot is a day; the line is a smoothed trend",
+           subtitle_extra)) +
+    viz$theme(base_size = 13)
+}
+```
+
+:::
+
+::: {.analysis-section}
+
+### Stability calendar
+
+```{webr}
+#| label: fact-calendar
+#| input: ["fileText"]
+
+if (exists("visible")) {
+  stab <- visible[visible$tracker == "Stability Score" &
+                    !is.na(visible$value), ]
+  if (nrow(stab) >= 7) {
+    d_range <- range(visible$odate, na.rm = TRUE)
+    span <- as.integer(d_range[2] - d_range[1]) + 1L
+    logged <- length(unique(stab$odate))
+    pct <- round(100 * logged / span)
+    mean_stab <- mean(stab$value, na.rm = TRUE)
+
+    htmltools::HTML(sprintf(
+      paste0(
+        '<p class="section-fact">',
+        'Stability logged on <strong>%s of %s days</strong> ',
+        '(<strong>%s%%</strong> complete). ',
+        'Your overall mean is <strong>%.1f / 5</strong>.',
+        '</p>'
+      ),
+      format(logged, big.mark = ","),
+      format(span, big.mark = ","),
+      pct, mean_stab
+    ))
+  }
+}
+```
+
+Each tile is a day.
+Colour shows the morning Stability Score (1–5).
+Reads like a wall calendar: weeks march left-to-right, weekdays stack top-to-bottom.
+Muted tiles are days you didn't log.
+Look for streaks (long runs of similar colour) and breaks (a sudden colour change) — those are the moments worth pairing with whatever was happening in your life that week.
+
+```{webr}
+#| label: chart-calendar
+#| input: ["fileText", "darkMode"]
+#| fig-width: 12
+#| fig-height: 6
+
+if (exists("visible")) {
+  viz <- viz_theme(darkMode)
+
+  date_range <- range(visible$odate, na.rm = TRUE)
+  all_days <- data.frame(
+    odate = seq.Date(date_range[1], date_range[2], by = "day")
+  )
+  all_days$week_start <- floor_date(all_days$odate, "week",
+                                                week_start = 1)
+  all_days$wday <- wday(all_days$odate, label = TRUE,
+                                    abbr = TRUE, week_start = 1)
+
+  stab <- visible |>
+    filter(tracker == "Stability Score") |>
+    group_by(odate) |>
+    summarise(value = mean(value, na.rm = TRUE),
+                     .groups = "drop")
+
+  grid <- merge(all_days, stab, by = "odate", all.x = TRUE)
+
+  base <- ggplot(mapping = aes(fill = value)) +
+    scale_y_discrete(limits = rev, expand = c(0, 0)) +
+    scale_fill_gradient(low = viz$cal_low, high = viz$cal_high,
+                        limits = c(1, 5), na.value = viz$cal_na,
+                        name = "Stability") +
+    coord_cartesian(clip = "off") +
+    labs(x = NULL, y = NULL,
+         title = "Stability Score across your timeline",
+         subtitle = if (is_multi_year)
+           "One row per year · brighter = more stable · muted tile = no entry"
+         else
+           "Brighter = more stable · muted tile = no entry that day") +
+    viz$theme(base_size = 11) +
+    theme(
+      panel.grid = element_blank(),
+      axis.text.x = element_text(hjust = 0),
+      axis.ticks = element_blank(),
+      legend.position = "right",
+      legend.key.height = grid::unit(1.2, "cm")
+    )
+
+  if (is_multi_year) {
+    grid$year <- year(grid$odate)
+    grid$woy <- as.integer(format(grid$odate, "%V"))
+    grid$year_iso <- as.integer(format(grid$odate, "%G"))
+    grid$year <- ifelse(grid$woy >= 52 & month(grid$odate) == 1,
+                        year(grid$odate) - 1,
+                        ifelse(grid$woy == 1 & month(grid$odate) == 12,
+                               year(grid$odate) + 1,
+                               year(grid$odate)))
+    month_weeks <- as.integer(format(
+      as.Date(sprintf("2024-%02d-15", 1:12)), "%V"))
+    base +
+      geom_tile(data = grid,
+                aes(x = woy, y = wday),
+                colour = viz$paper_card, linewidth = 0.5) +
+      facet_wrap(~ year, ncol = 1, strip.position = "left") +
+      scale_x_continuous(breaks = month_weeks, labels = month.abb,
+                         expand = c(0.005, 0.005)) +
+      theme(strip.text.y.left = element_text(angle = 0, face = "italic",
+                                              colour = viz$ink_soft,
+                                              size = 11))
+  } else {
+    base +
+      geom_tile(data = grid,
+                aes(x = week_start, y = wday),
+                colour = viz$paper_card, linewidth = 0.5) +
+      scale_x_date(date_breaks = "1 month", date_labels = "%b %Y",
+                   expand = c(0.005, 0.005))
+  }
+}
+```
+
+:::

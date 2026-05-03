@@ -5,6 +5,7 @@ _site/
 .Rproj.user/
 .Rhistory
 sample-visible.csv
+sample-visible-multiyear.csv
 visible.csv
 
 /.quarto/

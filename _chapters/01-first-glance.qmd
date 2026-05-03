@@ -1,0 +1,65 @@
+::: {.chapter-num}
+Chapter I
+:::
+
+## A first glance {.chapter-title}
+
+::: {.chapter-lede}
+Before we look at any patterns, it's worth seeing the shape of what you've been keeping.
+Which kinds of things you log most often tells us a lot about where to look next — and what the rest of this page can and can't tell you.
+:::
+
+::: {.analysis-section}
+
+### Snapshot
+
+The bars below count every observation in your export, grouped by category.
+The longest bar is what you log most.
+If a category has only a handful of entries, the patterns later on in this page will be wobbly for that category — there's just not much to go on.
+
+```{webr}
+#| label: fact-snapshot
+#| input: ["fileText"]
+
+if (exists("visible")) {
+  v_no_fc <- visible[!grepl("^Funcap", visible$category), ]
+  cat_n <- sort(table(v_no_fc$category), decreasing = TRUE)
+  top_cat <- names(cat_n)[1]
+  top_n   <- as.integer(cat_n[1])
+  bot_cat <- names(cat_n)[length(cat_n)]
+  bot_n   <- as.integer(cat_n[length(cat_n)])
+
+  htmltools::HTML(sprintf(
+    paste0(
+      '<p class="section-fact">',
+      'Your most-tracked category is <strong>%s</strong> ',
+      '(<strong>%s</strong> observations); your least-tracked is ',
+      '<strong>%s</strong> (<strong>%s</strong>). Funcap entries are excluded — they\'re a separate questionnaire.',
+      '</p>'
+    ),
+    top_cat, format(top_n, big.mark = ","),
+    bot_cat, format(bot_n, big.mark = ",")
+  ))
+}
+```
+
+```{webr}
+#| label: chart-snapshot
+#| input: ["fileText", "darkMode"]
+
+if (exists("visible")) {
+  viz <- viz_theme(darkMode)
+  visible |>
+    filter(!grepl("^Funcap", category)) |>
+    count(category, sort = TRUE) |>
+    mutate(category = fct_reorder(category, n)) |>
+    ggplot(aes(n, category)) +
+    geom_col(fill = viz$secondary) +
+    labs(x = "Observations", y = NULL,
+         title = "Tracker volume by category",
+         subtitle = "Funcap questionnaire categories excluded") +
+    viz$theme(base_size = 13)
+}
+```
+
+:::

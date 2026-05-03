@@ -10,40 +10,33 @@ format:
 
 ## What is this?
 
-Visible Explorer is a private, in-browser tool for people who use the [Visible app](https://www.makevisible.com/) to track long COVID, ME/CFS, or related conditions. It lets you upload your own data export and see analyses adapted from blog posts by [Dr. Mowinckel](https://drmowinckels.io) — without your data ever leaving your computer.
+Visible Explorer is a private, in-browser tool for people who use the [Visible app](https://www.makevisible.com/) to track long COVID, ME/CFS, or related conditions. 
+It lets you upload your own data export and see analyses adapted from blog posts by [Dr. Mowinckel](https://drmowinckels.io) — without your data ever leaving your computer.
 
 ## How is it private?
 
-Every analysis runs locally inside your browser using [WebR](https://docs.r-wasm.org/webr/), a build of R that runs as WebAssembly. When you select a CSV file, it's read into memory in your browser tab. There is no upload to a server, no cookie, no tracking. Close the tab and the data is gone.
+Every analysis runs locally inside your browser using [WebR](https://docs.r-wasm.org/webr/), a build of R that runs as WebAssembly. 
+When you select a CSV file, it's read into memory in your browser tab. 
+There is no upload to a server, no cookie, no tracking. Close the tab and the data is gone.
 
-You can verify this by opening your browser's developer tools (Network tab) and watching: the only requests are for static page assets and the WebR runtime files. None of them carry your CSV.
+You can verify this by opening your browser's developer tools (Network tab) and watching: the only requests are for static page assets and the WebR runtime files. 
+None of them carry your CSV.
 
 ## How do I get my data out of Visible?
 
-In the Visible app: **Settings → Export Data**. You'll receive a `visible.csv` file. That's the file to upload here.
-
-## What's included
-
-The page is laid out as six short chapters, each answering a different question about your data:
-
-- **A first glance** — what you've been logging, and how much of it. A reality check on which patterns later in the page will be solid and which will be wobbly.
-- **Through time** — how Stability Score, HRV and Resting Heart Rate have moved over months. A calendar view of every morning's stability, so streaks and breaks jump out.
-- **What hangs together** — which of your trackers tend to move in step (and which move opposite). A grid view and a tree view of the same idea.
-- **Where things shift** — moments your baseline seems to have stepped up or down. A single number per day for how unusual the whole day was, plotted across your timeline.
-- **Cycles & capacity** — how your symptoms look across the menstrual cycle (if you log a Period tracker), and how your functional capacity has shifted across eight everyday domains.
-- **Look closer** — interactive tools to dig into any one tracker, compare two, revisit your written notes alongside the day's measurements, or surface the days where everything was off at once.
-
-Every chart sits next to plain-language guidance on what to look for and how to read it.
+In the Visible app: **Settings → Export Data**. 
+You'll receive a `visible.csv` file. 
+That's the file to upload here.
 
 ## Who made this
 
-Hi — I'm [Dr. Athanasia Mo Mowinckel](https://drmowinckels.io). I'm a staff scientist at the [Center for Lifespan Changes in Brain and Cognition (LCBC)](https://www.oslobrains.no/) at the University of Oslo, where I lead data management for our research group and the [Lifebrain](https://www.lifebrain.uio.no/) EU project. My PhD is in cognitive neuroscience, and most of my day-to-day is wrangling longitudinal brain-and-behaviour data — usually in R.
+Hi — I'm [Dr. Athanasia Mo Mowinckel](https://drmowinckels.io). 
+I'm a staff scientist at the [Center for Lifespan Changes in Brain and Cognition (LCBC)](https://www.oslobrains.no/) at the University of Oslo, where I lead data management for our research group and the [Lifebrain](https://www.lifebrain.uio.no/) EU project. 
+My PhD is in cognitive neuroscience, and most of my day-to-day is wrangling longitudinal brain-and-behaviour data — usually in R, and developing Research Software.
 
-The analyses on this page started as [blog posts](https://drmowinckels.io/tags/longcovid/) where I was working through my own Visible export, trying to make sense of what was happening. This site is the same code, repackaged so you can run it on yours, on your machine, without any of it touching mine.
+The analyses on this page started as [blog posts](https://drmowinckels.io/tags/longcovid/) where I was working through my own Visible export, trying to make sense of what was happening. 
+This site is the same code, repackaged so you can run it on yours, on your machine, without any of it touching mine.
 
-On the open-source side I co-lead [R-Ladies Oslo](https://rladies.org/), help out on the R-Ladies Global team, and maintain the [ggseg](https://github.com/ggseg) family of R packages for brain visualisation. If something here is broken — or if you'd like to see another chart — the GitHub link in the navbar is the best place to flag it.
-
-I'm a researcher, not a clinician. See the disclaimer below.
 
 ## Credits
 
@@ -52,4 +45,6 @@ I'm a researcher, not a clinician. See the disclaimer below.
 
 ## Disclaimer
 
-This is not a medical tool. The analyses are exploratory and personal. Decisions about your health should be made with your clinician.
+This is not a medical tool. 
+The analyses are exploratory and personal. 
+Decisions about your health should be made with your clinician.

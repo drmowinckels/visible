@@ -1,0 +1,85 @@
+```{webr}
+#| label: helpers
+#| output: false
+
+step <- function(msg) {
+  cat(sprintf("STEP %s\n", msg))
+  utils::flush.console()
+}
+done <- function(msg) {
+  cat(sprintf("READY %s\n", msg))
+  utils::flush.console()
+}
+
+viz_theme <- function(dark = FALSE) {
+  pal <- if (isTRUE(dark)) {
+    list(paper = "#1F2728", paper_card = "#2F3839",
+         ink = "#F7E1D7", ink_soft = "#DEDBD2",
+         muted = "#A8B0A6", rule = "#4A5759",
+         accent = "#EDAFB8", accent_soft = "#EDAFB833",
+         secondary = "#B0C4B1",
+         highlight = "#E5BD7A",
+         cal_low = "#4A2A33", cal_high = "#F7E1D7", cal_na = "#3A4445")
+  } else {
+    list(paper = "#F7E1D7", paper_card = "#FCEFE8",
+         ink = "#3D4849", ink_soft = "#4A5759",
+         muted = "#566365", rule = "#B5ACA0",
+         accent = "#8E3A4A", accent_soft = "#8E3A4A33",
+         secondary = "#3F5E45",
+         highlight = "#C99A4A",
+         cal_low = "#5C2A37", cal_high = "#EDAFB8", cal_na = "#C8C0B5")
+  }
+  pal$theme <- function(base_size = 13) {
+    theme_minimal(base_size = base_size) +
+      theme(
+        plot.background  = element_rect(fill = pal$paper_card, colour = NA),
+        panel.background = element_rect(fill = pal$paper_card, colour = NA),
+        text             = element_text(colour = pal$ink_soft),
+        plot.title       = element_text(colour = pal$ink,
+                                        family = "serif", face = "italic"),
+        plot.subtitle    = element_text(colour = pal$muted),
+        axis.text        = element_text(colour = pal$muted),
+        axis.title       = element_text(colour = pal$ink_soft),
+        strip.text       = element_text(colour = pal$ink_soft, face = "italic"),
+        legend.text      = element_text(colour = pal$muted),
+        legend.title     = element_text(colour = pal$ink_soft),
+        panel.grid.major = element_line(colour = pal$rule, linewidth = 0.3),
+        panel.grid.minor = element_blank()
+      )
+  }
+  pal
+}
+
+year_marks <- function(dates, viz, multi_year) {
+  if (!isTRUE(multi_year)) return(NULL)
+  yrs <- seq(year(min(dates, na.rm = TRUE)) + 1,
+             year(max(dates, na.rm = TRUE)))
+  if (length(yrs) == 0) return(NULL)
+  geom_vline(xintercept = as.Date(sprintf("%d-01-01", yrs)),
+             colour = viz$rule, linetype = "dotted", linewidth = 0.4)
+}
+
+longest_run <- function(flag, dates, values = NULL) {
+  if (!any(flag, na.rm = TRUE)) return(NULL)
+  r <- rle(flag); lens <- r$lengths; lens[!r$values] <- 0
+  idx <- which.max(lens); if (lens[idx] == 0) return(NULL)
+  end_pos <- sum(r$lengths[seq_len(idx)])
+  start_pos <- end_pos - r$lengths[idx] + 1L
+  out <- list(start = dates[start_pos], end = dates[end_pos],
+              length = r$lengths[idx])
+  if (!is.null(values)) out$mean <- mean(values[start_pos:end_pos], na.rm = TRUE)
+  out
+}
+
+rle_episodes <- function(flag, dates) {
+  if (!any(flag, na.rm = TRUE)) return(NULL)
+  r <- rle(flag)
+  ends <- cumsum(r$lengths)
+  starts <- c(1L, ends[-length(ends)] + 1L)
+  data.frame(
+    start  = dates[starts[r$values]],
+    end    = dates[ends[r$values]],
+    length = r$lengths[r$values]
+  )
+}
+```

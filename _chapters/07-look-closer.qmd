@@ -1,0 +1,478 @@
+::: {.chapter-num}
+Chapter VII
+:::
+
+## Look closer {.chapter-title}
+
+::: {.chapter-lede}
+Pick a tracker to dig into.
+Compare two side by side.
+Revisit your written notes alongside that day's measurements.
+Find the days where everything was off at once.
+Same data, four different lenses — use these when something earlier in the page sparked a question.
+:::
+
+::: {.analysis-section}
+
+### A single tracker, in detail
+
+Pick any tracker from the list and see three views of it at once: how it has moved over time, the shape of its distribution (where most of your values land), and whether it tends to be different on certain days of the week.
+The day-of-week panel can be a quiet revelation — many people find their measurements dip on Mondays after a busy weekend, or improve on Sundays.
+
+```{ojs}
+//| label: ojs-tracker-list
+//| echo: false
+trackerList = {
+  if (!fileText) return [];
+  const lines = fileText.split('\n');
+  const set = new Set();
+  for (let i = 1; i < lines.length; i++) {
+    const cols = lines[i].split(',');
+    if (cols.length >= 4) {
+      const name = cols[1]?.trim();
+      if (name && name !== 'Note') set.add(name);
+    }
+  }
+  return [...set].sort();
+}
+```
+
+```{ojs}
+//| label: ojs-outcome-list
+//| echo: false
+outcomeList = {
+  const outcomes = ["Stability Score", "HR Variability", "Resting HR", "Sleep"];
+  return outcomes.filter(t => trackerList.includes(t));
+}
+```
+
+```{ojs}
+//| label: ojs-tracker-select
+//| echo: false
+viewof selectedTracker = Inputs.select(outcomeList, {
+  label: "Tracker",
+  value: outcomeList.includes("Stability Score") ? "Stability Score" : outcomeList[0]
+})
+```
+
+```{webr}
+#| label: chart-tracker-detail
+#| input: ["fileText", "selectedTracker", "darkMode"]
+#| fig-width: 11
+#| fig-height: 8
+
+if (exists("visible") && nchar(selectedTracker) > 0) {
+  viz <- viz_theme(darkMode)
+
+  sub <- visible |>
+    filter(tracker == selectedTracker, !is.na(value))
+
+  if (nrow(sub) < 5) {
+    cat(sprintf("Only %d observations for '%s' — not enough to plot.\n",
+                nrow(sub), selectedTracker))
+  } else {
+    is_binary <- length(unique(sub$value)) <= 2 &&
+                 all(sub$value %in% c(0, 1))
+
+    sub$wday <- wday(sub$odate, label = TRUE, abbr = TRUE,
+                                 week_start = 1)
+
+    if (is_binary) {
+      p_trend <- sub |>
+        mutate(week = floor_date(odate, "week")) |>
+        group_by(week) |>
+        summarise(rate = mean(value > 0) * 100,
+                         .groups = "drop") |>
+        ggplot(aes(week, rate)) +
+        geom_col(fill = viz$secondary) +
+        geom_smooth(method = "loess", formula = y ~ x, se = FALSE,
+                    colour = viz$accent, linewidth = 0.9) +
+        labs(x = NULL, y = "% positive", title = "Weekly positive rate") +
+        viz$theme(base_size = 11)
+
+      counts <- sub |>
+        count(value) |>
+        mutate(value = factor(value,
+                                     labels = c("Absent", "Present")))
+      p_dist <- ggplot(counts, aes(value, n)) +
+        geom_col(fill = viz$secondary) +
+        geom_text(aes(label = n), vjust = -0.4,
+                  family = "sans", size = 3.5,
+                  colour = viz$ink) +
+        labs(x = NULL, y = "Days", title = "Counts") +
+        viz$theme(base_size = 11) +
+        theme(panel.grid.major.x = element_blank())
+
+      overall_rate <- mean(sub$value > 0) * 100
+      p_wday <- sub |>
+        group_by(wday) |>
+        summarise(rate = mean(value > 0) * 100,
+                         .groups = "drop") |>
+        ggplot(aes(wday, rate)) +
+        geom_col(fill = viz$accent) +
+        geom_hline(yintercept = overall_rate,
+                   linetype = "dashed", colour = viz$secondary,
+                   linewidth = 0.4) +
+        labs(x = NULL, y = "% positive", title = "By day of week") +
+        viz$theme(base_size = 11)
+    } else {
+      p_trend <- ggplot(sub, aes(odate, value)) +
+        geom_point(alpha = 0.5, colour = viz$secondary, size = 1.2) +
+        geom_smooth(method = "loess", formula = y ~ x, se = TRUE,
+                    colour = viz$accent, fill = viz$accent_soft) +
+        labs(x = NULL, y = NULL, title = "Trend over time") +
+        viz$theme(base_size = 11)
+
+      p_dist <- ggplot(sub, aes(value)) +
+        geom_histogram(bins = 15, fill = viz$secondary, colour = viz$paper_card) +
+        labs(x = NULL, y = "Days", title = "Distribution") +
+        viz$theme(base_size = 11)
+
+      p_wday <- ggplot(sub, aes(wday, value)) +
+        geom_boxplot(fill = viz$accent_soft, colour = viz$accent,
+                     outlier.size = 0.6) +
+        labs(x = NULL, y = NULL, title = "By day of week") +
+        viz$theme(base_size = 11)
+    }
+
+    summary_text <- if (is_binary) {
+      sprintf(
+        "%s · binary · %d days observed · positive on %d days (%.0f%%)",
+        selectedTracker,
+        nrow(sub),
+        sum(sub$value > 0),
+        mean(sub$value > 0) * 100
+      )
+    } else {
+      sprintf(
+        "%s · %d observations · range %s to %s · median %.2f · IQR %.2f-%.2f",
+        selectedTracker,
+        nrow(sub),
+        format(min(sub$odate), "%Y-%m-%d"),
+        format(max(sub$odate), "%Y-%m-%d"),
+        stats::median(sub$value),
+        stats::quantile(sub$value, 0.25),
+        stats::quantile(sub$value, 0.75)
+      )
+    }
+
+    if (requireNamespace("patchwork", quietly = TRUE)) {
+      print(patchwork::wrap_plots(p_trend, p_dist, p_wday,
+                                   design = "AAA\nBCC") +
+            patchwork::plot_annotation(
+              title = selectedTracker,
+              subtitle = summary_text,
+              theme = theme(
+                plot.background = element_rect(
+                  fill = viz$paper_card, colour = NA),
+                plot.title = element_text(
+                  family = "serif", face = "italic", size = 16,
+                  colour = viz$ink),
+                plot.subtitle = element_text(
+                  colour = viz$muted, size = 10))
+            ))
+    } else {
+      cat(summary_text, "\n")
+      print(p_trend)
+    }
+  }
+}
+```
+
+:::
+
+::: {.analysis-section}
+
+### Your notes, in context
+
+Days you wrote a note, with the morning HRV and Stability Score for that day.
+Most recent first.
+Hover or scroll for more.
+
+```{webr}
+#| label: notes-list
+#| input: ["fileText"]
+
+if (exists("notes_df") && exists("visible") && nrow(notes_df) > 0) {
+  context <- visible |>
+    filter(tracker %in% c("HR Variability", "Stability Score")) |>
+    select(odate, tracker, value) |>
+    pivot_wider(names_from = tracker, values_from = value)
+
+  notes_ctx <- notes_df |>
+    left_join(context, by = "odate")
+
+  fmt_val <- function(x) {
+    if (is.na(x)) "—" else format(round(x, 1), trim = TRUE)
+  }
+
+  rows_html <- vapply(seq_len(nrow(notes_ctx)), function(i) {
+    r <- notes_ctx[i, ]
+    sprintf(
+      paste0(
+        '<div class="note-row">',
+        '<div class="note-date">%s</div>',
+        '<div class="note-meta">HRV %s · Stability %s</div>',
+        '<div class="note-text">%s</div>',
+        '</div>'
+      ),
+      format(r$odate, "%a %d %b %Y"),
+      fmt_val(r[["HR Variability"]]),
+      fmt_val(r[["Stability Score"]]),
+      gsub("<", "&lt;", gsub(">", "&gt;", r$note))
+    )
+  }, character(1))
+
+  htmltools::HTML(paste0(
+    sprintf('<p class="notes-summary">%d note(s) over the recorded period.</p>',
+            nrow(notes_ctx)),
+    '<div class="notes-list">',
+    paste(rows_html, collapse = "\n"),
+    '</div>'
+  ))
+} else if (exists("notes_df")) {
+  cat("No notes found in your export.\n")
+}
+```
+
+:::
+
+::: {.analysis-section}
+
+### Two trackers, side by side
+
+Lay any two trackers over the same timeline.
+Because they're often measured in completely different units (HRV in milliseconds vs Stability on a 1–5 scale, say), each is rescaled so that zero is its own typical value — that way the two lines are on the same visual footing and you can actually see them move together or apart.
+
+The smaller chart underneath asks a more subtle question: does one tracker tend to *lead* the other?
+If symptoms tend to flare a few days *after* a drop in HRV, the lag chart will show its strongest bar at a positive lag.
+If they tend to come together on the same day, the strongest bar will be right in the middle.
+This is suggestive, not proof — but it's a useful nudge towards what to investigate next.
+
+```{ojs}
+//| label: ojs-tracker-a
+//| echo: false
+viewof trackerA = Inputs.select(trackerList, {
+  label: "Tracker A",
+  value: trackerList.includes("HR Variability") ? "HR Variability" : trackerList[0]
+})
+```
+
+```{ojs}
+//| label: ojs-tracker-b
+//| echo: false
+viewof trackerB = Inputs.select(trackerList, {
+  label: "Tracker B",
+  value: trackerList.includes("Stability Score") ? "Stability Score" :
+         (trackerList.includes("Resting HR") ? "Resting HR" : trackerList[1] || trackerList[0])
+})
+```
+
+```{webr}
+#| label: chart-compare
+#| input: ["fileText", "trackerA", "trackerB", "darkMode"]
+#| fig-width: 11
+#| fig-height: 7
+
+if (exists("visible") && nchar(trackerA) > 0 && nchar(trackerB) > 0 &&
+    trackerA != trackerB) {
+  viz <- viz_theme(darkMode)
+
+  pair <- visible |>
+    filter(tracker %in% c(trackerA, trackerB), !is.na(value)) |>
+    group_by(tracker, odate) |>
+    summarise(value = mean(value, na.rm = TRUE),
+                     .groups = "drop")
+
+  scaled <- pair |>
+    group_by(tracker) |>
+    mutate(
+      mu = mean(value, na.rm = TRUE),
+      sigma = stats::sd(value, na.rm = TRUE),
+      z = (value - mu) / ifelse(sigma == 0, 1, sigma)
+    ) |>
+    ungroup()
+
+  wide <- pair |>
+    pivot_wider(names_from = tracker, values_from = value)
+  paired <- wide[stats::complete.cases(wide[, c(trackerA, trackerB)]), ,
+                  drop = FALSE]
+
+  if (nrow(paired) < 10) {
+    cat("Fewer than 10 days with both trackers logged — too sparse to compare.\n")
+  } else {
+    r_pearson <- stats::cor(paired[[trackerA]], paired[[trackerB]],
+                            use = "complete.obs")
+
+    ccf_out <- stats::ccf(paired[[trackerA]], paired[[trackerB]],
+                           lag.max = 14, plot = FALSE)
+    ccf_df <- data.frame(lag = as.numeric(ccf_out$lag),
+                         r = as.numeric(ccf_out$acf))
+    best <- ccf_df[which.max(abs(ccf_df$r)), ]
+
+    p_overlay <- ggplot(scaled, aes(odate, z, colour = tracker)) +
+      geom_hline(yintercept = 0, colour = viz$rule, linewidth = 0.3) +
+      geom_line(alpha = 0.55, linewidth = 0.5) +
+      geom_smooth(method = "loess", formula = y ~ x, se = FALSE,
+                  linewidth = 1) +
+      scale_colour_manual(values = setNames(c(viz$accent, viz$secondary),
+                                              c(trackerA, trackerB)),
+                          name = NULL) +
+      labs(x = NULL, y = "Distance from each tracker's typical value",
+           title = sprintf("%s vs %s", trackerA, trackerB),
+           subtitle = sprintf(
+             "Move-together strength %+.2f (across %d shared days) · best line-up at %+d days (%+.2f)",
+             r_pearson, nrow(paired), best$lag, best$r)) +
+      viz$theme(base_size = 12) +
+      theme(legend.position = "top")
+
+    p_ccf <- ggplot(ccf_df, aes(lag, r)) +
+      geom_hline(yintercept = 0, colour = viz$rule, linewidth = 0.3) +
+      geom_segment(aes(xend = lag, yend = 0), colour = viz$muted,
+                   linewidth = 0.5) +
+      geom_point(aes(colour = abs(r) == max(abs(r))), size = 2) +
+      scale_colour_manual(values = c(`TRUE` = viz$accent,
+                                     `FALSE` = viz$ink_soft),
+                          guide = "none") +
+      labs(x = sprintf("Days of shift — negative = %s tends to lead", trackerB),
+           y = "How well they line up",
+           title = "Does one tracker lead the other?",
+           subtitle = "The tallest bar is where the patterns match best") +
+      viz$theme(base_size = 11)
+
+    if (requireNamespace("patchwork", quietly = TRUE)) {
+      print(patchwork::wrap_plots(p_overlay, p_ccf, ncol = 1,
+                                   heights = c(2, 1)))
+    } else {
+      print(p_overlay)
+    }
+  }
+} else if (exists("visible") && trackerA == trackerB) {
+  cat("Pick two different trackers to compare.\n")
+}
+```
+
+:::
+
+::: {.analysis-section}
+
+### Anomaly days
+
+For every tracker, every day, we ask: was today unusually far from your typical value for this tracker?
+Then we count, per day, how many of your trackers were unusual at the same time.
+**A day where lots of things were off at once is more likely to be a meaningful event** than a day where one number happened to be a bit high.
+The highlighted bars cross the threshold; the table below picks out your top few and shows which trackers were doing what.
+
+These are the days worth pairing with your written notes — and worth noticing if a pattern repeats (e.g. always the day after a big social outing).
+
+```{webr}
+#| label: chart-anomaly
+#| input: ["fileText", "darkMode"]
+#| fig-width: 11
+#| fig-height: 4.2
+
+if (exists("visible_mat_clean") && ncol(visible_mat_clean) >= 5) {
+  viz <- viz_theme(darkMode)
+
+  mu <- colMeans(visible_mat_clean, na.rm = TRUE)
+  sigma <- apply(visible_mat_clean, 2, stats::sd, na.rm = TRUE)
+  sigma[sigma == 0] <- 1
+  z <- sweep(sweep(visible_mat_clean, 2, mu, "-"), 2, sigma, "/")
+
+  spikes <- abs(z) > 2
+  spikes[is.na(spikes)] <- FALSE
+  spike_count <- rowSums(spikes)
+
+  daily <- data.frame(
+    odate = as.Date(rownames(visible_mat_clean)),
+    n_spikes = spike_count,
+    n_logged = rowSums(!is.na(visible_mat_clean))
+  )
+  daily <- daily[daily$n_logged >= 5, ]
+
+  threshold <- max(3, ceiling(0.10 * ncol(visible_mat_clean)))
+  daily$flag <- daily$n_spikes >= threshold
+
+  ggplot(daily, aes(odate, n_spikes, fill = flag)) +
+    geom_col(width = 0.9) +
+    geom_hline(yintercept = threshold, linetype = "dashed",
+               colour = viz$rule, linewidth = 0.4) +
+    annotate("text",
+             x = max(daily$odate),
+             y = threshold,
+             label = sprintf("threshold: %d", threshold),
+             hjust = 1, vjust = -0.5, size = 3,
+             colour = viz$muted) +
+    scale_fill_manual(values = c(`TRUE` = viz$accent,
+                                  `FALSE` = viz$ink_soft),
+                      guide = "none") +
+    scale_x_date(date_breaks = "1 month", date_labels = "%b %Y") +
+    labs(x = NULL, y = "Trackers behaving unusually",
+         title = "Days where many trackers were off at once",
+         subtitle = sprintf(
+           "Bars cross the dashed line on days where at least %d trackers were unusually high or low",
+           threshold)) +
+    viz$theme(base_size = 11)
+}
+```
+
+```{webr}
+#| label: anomaly-list
+#| input: ["fileText"]
+
+if (exists("visible_mat_clean") && ncol(visible_mat_clean) >= 5) {
+  mu <- colMeans(visible_mat_clean, na.rm = TRUE)
+  sigma <- apply(visible_mat_clean, 2, stats::sd, na.rm = TRUE)
+  sigma[sigma == 0] <- 1
+  z <- sweep(sweep(visible_mat_clean, 2, mu, "-"), 2, sigma, "/")
+
+  threshold <- max(3, ceiling(0.10 * ncol(visible_mat_clean)))
+  spikes <- abs(z) > 2
+  spikes[is.na(spikes)] <- FALSE
+  spike_count <- rowSums(spikes)
+  flagged <- which(spike_count >= threshold)
+
+  if (length(flagged) == 0) {
+    htmltools::HTML(
+      "<p class='notes-summary'>No anomaly days detected at this threshold.</p>"
+    )
+  } else {
+    flagged <- flagged[order(spike_count[flagged], decreasing = TRUE)]
+    flagged <- flagged[seq_len(min(8, length(flagged)))]
+
+    rows <- vapply(flagged, function(i) {
+      day_z <- z[i, ]
+      top_idx <- order(abs(day_z), decreasing = TRUE,
+                        na.last = NA)[1:min(5, sum(!is.na(day_z)))]
+      bullets <- vapply(top_idx, function(j) {
+        sprintf('<span class="anom-pill %s">%s %+.1fσ</span>',
+                ifelse(day_z[j] > 0, "anom-up", "anom-down"),
+                names(day_z)[j],
+                day_z[j])
+      }, character(1))
+      sprintf(
+        paste0(
+          '<div class="note-row anom-row">',
+          '<div class="note-date">%s</div>',
+          '<div class="note-meta">%d trackers spiking</div>',
+          '<div class="note-text">%s</div>',
+          '</div>'
+        ),
+        format(as.Date(rownames(visible_mat_clean))[i], "%a %d %b %Y"),
+        spike_count[i],
+        paste(bullets, collapse = " ")
+      )
+    }, character(1))
+
+    htmltools::HTML(paste0(
+      sprintf('<p class="notes-summary">Top %d anomaly day(s)</p>',
+              length(flagged)),
+      '<div class="notes-list">',
+      paste(rows, collapse = "\n"),
+      '</div>'
+    ))
+  }
+}
+```
+
+:::

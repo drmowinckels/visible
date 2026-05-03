@@ -1,0 +1,338 @@
+::: {.chapter-num}
+Chapter V
+:::
+
+## Cycles & capacity {.chapter-title}
+
+::: {.chapter-lede}
+Two body-rhythm views.
+First, how your symptoms move across the menstrual cycle — for many people with long COVID or ME/CFS, that cycle interacts strongly with the rest of how the body feels.
+Then, how your everyday functional capacity has shifted across eight domains of daily living.
+:::
+
+::: {.analysis-section}
+
+### Menstrual cycle
+
+If your export has a `Period` tracker with at least a couple of full cycles, every cycle gets lined up so day 1 is the first day of bleeding, then your Stability and HRV are averaged at each cycle day across all the cycles.
+**Look for repeated dips or peaks at the same point in the cycle** — those are patterns that recur every month and may be worth planning around.
+The shaded ribbon shows how much variability there is around each day's average; thin ribbons mean the pattern is consistent across cycles, wide ribbons mean cycles vary a lot.
+
+The four phase bands — *Menstrual*, *Follicular*, *Ovulatory*, *Luteal* — are labelled along the top of each panel using textbook day-ranges, and the dotted vertical line marks the typical day of ovulation (around day 14).
+Your own cycle won't match a textbook exactly, but it's a useful frame for reading the pattern.
+Cycles shorter than 18 days or longer than 45 are dropped (likely incomplete or merged).
+
+```{webr}
+#| label: fact-cycle
+#| input: ["fileText"]
+
+if (exists("visible")) {
+  period <- visible |>
+    filter(tracker == "Period") |>
+    mutate(value = ifelse(is.na(value), 0, value)) |>
+    arrange(odate)
+
+  if (nrow(period) > 0 && sum(period$value > 0, na.rm = TRUE) >= 5) {
+    bleed_dates <- sort(unique(period$odate[period$value > 0]))
+    starts <- bleed_dates[c(TRUE, diff(bleed_dates) > 2)]
+    cycles_for_fact <- data.frame(
+      start = starts,
+      end = c(starts[-1] - 1, max(visible$odate, na.rm = TRUE))
+    )
+    cycles_for_fact$length <- as.numeric(cycles_for_fact$end -
+                                          cycles_for_fact$start) + 1
+    cycles_for_fact <- cycles_for_fact[cycles_for_fact$length >= 18 &
+                                        cycles_for_fact$length <= 45, ]
+
+    if (nrow(cycles_for_fact) >= 2) {
+      core <- visible |>
+        filter(tracker %in% c("Stability Score", "HR Variability")) |>
+        group_by(tracker, odate) |>
+        summarise(value = mean(value, na.rm = TRUE),
+                         .groups = "drop")
+
+      assign_cycle_day <- function(d) {
+        idx <- max(which(cycles_for_fact$start <= d &
+                          cycles_for_fact$end >= d), 0L)
+        if (idx == 0) return(NA_integer_)
+        as.integer(d - cycles_for_fact$start[idx]) + 1L
+      }
+      core$cycle_day <- vapply(core$odate, assign_cycle_day, integer(1))
+      core <- core[!is.na(core$cycle_day) & core$cycle_day <= 35, ]
+
+      stab_means <- core |>
+        filter(tracker == "Stability Score") |>
+        group_by(cycle_day) |>
+        summarise(n = n(),
+                         mean = mean(value, na.rm = TRUE),
+                         .groups = "drop") |>
+        filter(n >= 2)
+
+      worst <- stab_means[which.min(stab_means$mean), ]
+      best <- stab_means[which.max(stab_means$mean), ]
+      gap <- best$mean - worst$mean
+
+      phase_name <- function(d) {
+        if (d <= 5) "menstrual"
+        else if (d <= 13) "follicular"
+        else if (d <= 16) "ovulatory"
+        else "luteal"
+      }
+
+      htmltools::HTML(sprintf(
+        paste0(
+          '<p class="section-fact">',
+          'Across <strong>%d</strong> cycle(s), Stability dips lowest ',
+          'on <strong>day %d</strong> (%.1f / 5, %s phase) ',
+          'and peaks on <strong>day %d</strong> (%.1f / 5, %s phase). ',
+          'Difference: <strong>%.1f points</strong>.',
+          '</p>'
+        ),
+        nrow(cycles_for_fact),
+        worst$cycle_day, worst$mean, phase_name(worst$cycle_day),
+        best$cycle_day, best$mean, phase_name(best$cycle_day),
+        gap
+      ))
+    }
+  }
+}
+```
+
+```{webr}
+#| label: chart-cycle
+#| input: ["fileText", "darkMode"]
+#| fig-width: 9
+#| fig-height: 6.5
+
+if (exists("visible")) {
+  viz <- viz_theme(darkMode)
+
+  period <- visible |>
+    filter(tracker == "Period") |>
+    mutate(value = ifelse(is.na(value), 0, value)) |>
+    arrange(odate)
+
+  if (nrow(period) == 0 || sum(period$value > 0, na.rm = TRUE) < 5) {
+    cat("No usable Period data found — skipping cycle analysis.\n")
+  } else {
+    bleed_dates <- sort(unique(period$odate[period$value > 0]))
+
+    starts <- bleed_dates[c(TRUE, diff(bleed_dates) > 2)]
+
+    cycles <- data.frame(
+      cycle_id = seq_along(starts),
+      start = starts,
+      end = c(starts[-1] - 1, max(visible$odate, na.rm = TRUE))
+    )
+    cycles$length <- as.numeric(cycles$end - cycles$start) + 1
+    cycles <- cycles[cycles$length >= 18 & cycles$length <= 45, ]
+
+    if (nrow(cycles) < 2) {
+      cat("Fewer than 2 complete cycles detected — need more data.\n")
+    } else {
+      core <- visible |>
+        filter(tracker %in% c("Stability Score", "HR Variability")) |>
+        group_by(tracker, odate) |>
+        summarise(value = mean(value, na.rm = TRUE),
+                         .groups = "drop")
+
+      assign_cycle <- function(d) {
+        idx <- max(which(cycles$start <= d & cycles$end >= d), 0L)
+        if (idx == 0) return(c(NA_integer_, NA_integer_))
+        c(cycles$cycle_id[idx],
+          as.integer(d - cycles$start[idx]) + 1L)
+      }
+
+      assigned <- t(vapply(core$odate, assign_cycle,
+                            integer(2)))
+      core$cycle_id <- assigned[, 1]
+      core$cycle_day <- assigned[, 2]
+      core <- core[!is.na(core$cycle_day) & core$cycle_day <= 35, ]
+
+      summary_df <- core |>
+        group_by(tracker, cycle_day) |>
+        summarise(
+          n = n(),
+          mean = mean(value, na.rm = TRUE),
+          se = stats::sd(value, na.rm = TRUE) / sqrt(pmax(n, 1)),
+          .groups = "drop"
+        ) |>
+        filter(n >= 2)
+
+      n_cycles <- nrow(cycles)
+
+      phases <- data.frame(
+        phase = factor(c("Menstrual", "Follicular",
+                         "Ovulatory", "Luteal"),
+                       levels = c("Menstrual", "Follicular",
+                                  "Ovulatory", "Luteal")),
+        xmin = c(0.5, 5.5, 13.5, 16.5),
+        xmax = c(5.5, 13.5, 16.5, 35.5)
+      )
+
+      phase_labels <- data.frame(
+        phase = c("Menstrual", "Follicular", "Ovulatory", "Luteal"),
+        x = c(3, 9.5, 15, 26)
+      )
+
+      ovulation_day <- 14
+
+      worsts <- do.call(rbind, lapply(
+        split(summary_df, summary_df$tracker),
+        function(df) df[which.min(df$mean), ]
+      ))
+      worsts$kind <- "worst"
+
+      bests <- do.call(rbind, lapply(
+        split(summary_df, summary_df$tracker),
+        function(df) df[which.max(df$mean), ]
+      ))
+      bests$kind <- "best"
+
+      extremes <- rbind(worsts, bests)
+
+      ggplot(summary_df, aes(cycle_day, mean)) +
+        geom_rect(data = phases,
+                  aes(xmin = xmin, xmax = xmax,
+                      ymin = -Inf, ymax = Inf,
+                      fill = phase),
+                  inherit.aes = FALSE, alpha = 0.22) +
+        scale_fill_manual(
+          values = c(Menstrual = viz$accent,
+                     Follicular = viz$secondary,
+                     Ovulatory = viz$highlight,
+                     Luteal = viz$muted),
+          guide = "none"
+        ) +
+        geom_vline(xintercept = ovulation_day,
+                   colour = viz$ink_soft, linetype = "dotted",
+                   linewidth = 0.6) +
+        geom_vline(data = worsts,
+                   aes(xintercept = cycle_day),
+                   colour = viz$accent, linetype = "dashed",
+                   linewidth = 0.4, inherit.aes = FALSE) +
+        geom_vline(data = bests,
+                   aes(xintercept = cycle_day),
+                   colour = viz$secondary, linetype = "dashed",
+                   linewidth = 0.4, inherit.aes = FALSE) +
+        geom_ribbon(aes(ymin = mean - se, ymax = mean + se),
+                    fill = viz$accent_soft) +
+        geom_line(colour = viz$accent, linewidth = 1) +
+        geom_point(colour = viz$ink, size = 1.2) +
+        geom_point(data = worsts,
+                   aes(cycle_day, mean),
+                   inherit.aes = FALSE,
+                   colour = viz$accent, fill = viz$accent_soft,
+                   shape = 21, size = 3.5, stroke = 1.2) +
+        geom_point(data = bests,
+                   aes(cycle_day, mean),
+                   inherit.aes = FALSE,
+                   colour = viz$secondary, fill = "white",
+                   shape = 21, size = 3.5, stroke = 1.2) +
+        geom_text(data = worsts,
+                  aes(cycle_day, mean,
+                      label = sprintf("worst (d%d)", cycle_day)),
+                  inherit.aes = FALSE,
+                  colour = viz$accent, hjust = -0.15,
+                  vjust = 1.4, size = 3, family = "sans") +
+        geom_text(data = bests,
+                  aes(cycle_day, mean,
+                      label = sprintf("best (d%d)", cycle_day)),
+                  inherit.aes = FALSE,
+                  colour = viz$secondary, hjust = -0.15,
+                  vjust = -0.6, size = 3, family = "sans") +
+        geom_text(data = phase_labels,
+                  aes(x = x, y = Inf, label = phase),
+                  inherit.aes = FALSE,
+                  vjust = 1.4, hjust = 0.5,
+                  family = "serif", fontface = "italic",
+                  size = 3.4, colour = viz$ink_soft) +
+        annotate("text",
+                 x = ovulation_day, y = Inf,
+                 label = "↓ ovulation",
+                 vjust = 3.2, hjust = 0.5,
+                 family = "sans", fontface = "italic",
+                 size = 3, colour = viz$ink_soft) +
+        facet_wrap(~ tracker, scales = "free_y", ncol = 1) +
+        scale_x_continuous(breaks = c(1, 7, 14, 21, 28),
+                           minor_breaks = NULL,
+                           expand = c(0.005, 0.005)) +
+        coord_cartesian(clip = "off") +
+        labs(x = "Day of cycle (1 = first day of bleed)",
+             y = NULL,
+             title = "Symptoms across the menstrual cycle",
+             subtitle = sprintf(
+               "Mean ± SE across %d cycle(s) · phase bands shaded · ovulation marked at day 14",
+               n_cycles)) +
+        viz$theme(base_size = 12) +
+        theme(legend.position = "none",
+              plot.margin = margin(28, 15, 15, 15))
+    }
+  }
+}
+```
+
+:::
+
+::: {.analysis-section}
+
+### Functional capacity
+
+The FUNCAP-27 questionnaire asks how limited you've been in eight everyday domains — things like standing, concentrating, socialising, self-care.
+**Higher on the y-axis means more limited.**
+Each panel is one domain.
+The dots are individual days; the curve shows the underlying trend.
+Panels are ordered by how limited you've been *recently* — so the worst-affected domains are at the top-left.
+A curve that's been climbing means that area of life has gotten harder; one that's been falling means it's eased.
+
+```{webr}
+#| label: chart-funcap
+#| input: ["fileText", "darkMode"]
+#| fig-width: 11
+#| fig-height: 8
+
+if (exists("visible")) {
+  viz <- viz_theme(darkMode)
+
+  funcap <- visible |>
+    filter(grepl("^Funcap_", category)) |>
+    mutate(domain = sub("^Funcap_", "", category))
+
+  if (nrow(funcap) == 0) {
+    cat("No FUNCAP entries found in your export.\n")
+  } else {
+    daily <- funcap |>
+      group_by(domain, odate) |>
+      summarise(value = mean(value, na.rm = TRUE),
+                       .groups = "drop")
+
+    domain_order <- daily |>
+      group_by(domain) |>
+      summarise(latest = mean(value[odate >= max(odate) - 30],
+                                      na.rm = TRUE),
+                       .groups = "drop") |>
+      arrange(desc(latest))
+
+    daily$domain <- factor(daily$domain,
+                            levels = domain_order$domain)
+
+    ggplot(daily, aes(odate, value)) +
+      year_marks(daily$odate, viz, is_multi_year) +
+      geom_point(alpha = 0.3, colour = viz$secondary, size = 0.9) +
+      geom_smooth(method = "loess", formula = y ~ x, se = TRUE,
+                  colour = viz$accent, fill = viz$accent_soft,
+                  linewidth = 0.8) +
+      facet_wrap(~ domain, scales = "free_y", ncol = 3) +
+      labs(x = NULL, y = "Daily mean limit",
+           title = "Functional capacity by domain",
+           subtitle = if (is_multi_year)
+             "Higher = more limited · panels ordered by recent mean · dotted lines mark new years"
+           else
+             "Higher = more limited · panels ordered by recent mean") +
+      viz$theme(base_size = 11) +
+      theme(strip.text = element_text(face = "bold", colour = viz$ink_soft))
+  }
+}
+```
+
+:::

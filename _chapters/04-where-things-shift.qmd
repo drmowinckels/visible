@@ -1,0 +1,201 @@
+::: {.chapter-num}
+Chapter IV
+:::
+
+## Where things shift {.chapter-title}
+
+::: {.chapter-lede}
+Two ways to ask "when did something change?" — first, the moments where one tracker's typical level seems to step up or down; then, a single number per day for how unusual the whole day was.
+:::
+
+::: {.analysis-section}
+
+### Change points
+
+A statistical method scans your HRV, Resting HR, and Stability Score timelines and looks for moments where the typical value clearly shifted up or down — not just for a day or two, but settled into a new baseline.
+The dashed lines mark those moments, with the date next to each.
+Pair them with your memory: did anything change in your life around those dates?
+A new medication, an infection, a season change, a stressful stretch?
+The number of shifts considered scales with how long you've been logging — more years, more permitted breakpoints.
+If there are no lines, your baseline has stayed roughly steady — also useful to know.
+
+```{webr}
+#| label: chart-change-points
+#| input: ["fileText", "darkMode"]
+
+if (exists("visible") && requireNamespace("changepoint", quietly = TRUE)) {
+  viz <- viz_theme(darkMode)
+
+  series <- visible |>
+    filter(tracker %in% c("HR Variability", "Resting HR",
+                                 "Stability Score")) |>
+    group_by(tracker, odate) |>
+    summarise(value = mean(value, na.rm = TRUE),
+                     .groups = "drop") |>
+    arrange(tracker, odate)
+
+  tracker_range <- aggregate(value ~ tracker, series,
+                              function(x) c(min = min(x, na.rm = TRUE),
+                                            max = max(x, na.rm = TRUE)))
+  tracker_range <- data.frame(tracker = tracker_range$tracker,
+                               vmin = tracker_range$value[, 1],
+                               vmax = tracker_range$value[, 2])
+
+  cp_df <- do.call(rbind, lapply(split(series, series$tracker),
+    function(df) {
+      ok <- !is.na(df$value)
+      if (sum(ok) < 20) return(NULL)
+      cp <- suppressWarnings(
+        changepoint::cpt.mean(df$value[ok],
+                              method = "BinSeg", Q = cp_Q,
+                              penalty = "BIC")
+      )
+      idx <- changepoint::cpts(cp)
+      if (length(idx) == 0) return(NULL)
+      dts <- df$odate[ok][idx]
+      data.frame(tracker = df$tracker[1],
+                 odate = dts,
+                 label = format(dts, "%d %b %Y"))
+    }))
+
+  if (!is.null(cp_df) && nrow(cp_df) > 0) {
+    cp_df <- merge(cp_df, tracker_range, by = "tracker", all.x = TRUE)
+  }
+
+  p <- ggplot(series, aes(odate, value)) +
+    geom_point(colour = viz$muted, alpha = 0.45, size = 0.9) +
+    geom_smooth(method = "loess", formula = y ~ x, se = FALSE,
+                colour = viz$accent, linewidth = 0.9) +
+    facet_wrap(~ tracker, scales = "free_y", ncol = 1) +
+    labs(x = NULL, y = NULL,
+         title = "Moments your baseline shifted",
+         subtitle = sprintf(
+           "Dashed lines mark dates where the typical level moved up or down · up to %d per tracker",
+           cp_Q)) +
+    viz$theme(base_size = 12)
+
+  if (!is.null(cp_df) && nrow(cp_df) > 0) {
+    p <- p +
+      geom_vline(data = cp_df,
+                 aes(xintercept = odate),
+                 colour = viz$secondary,
+                 linetype = "dashed",
+                 linewidth = 0.5) +
+      geom_label(data = cp_df,
+                 aes(x = odate, y = vmin, label = label),
+                 colour = viz$secondary,
+                 fill = viz$paper_card,
+                 label.size = 0,
+                 label.padding = grid::unit(0.12, "lines"),
+                 hjust = -0.05, vjust = 0,
+                 size = 2.8,
+                 fontface = "italic")
+  }
+  p
+} else if (exists("visible")) {
+  cat("changepoint package not available in this WebR build — skipping.\n")
+}
+```
+
+:::
+
+::: {.analysis-section}
+
+### Daily symptom burden
+
+This boils every day down to a single number: across all your symptom trackers, how unusual was today compared to your own typical day?
+**Zero is your usual day.**
+Positive values mean a worse-than-usual day across multiple trackers at once; negative values mean an easier-than-usual one.
+The thin line is each individual day (jumpy by nature); the thick curve smooths over the noise to show the underlying drift.
+A long stretch above zero is a flare; a slow tilt downward over months is recovery; bouncing tightly around zero is stability.
+
+```{webr}
+#| label: fact-burden
+#| input: ["fileText"]
+
+if (exists("visible_mat_clean") && ncol(visible_mat_clean) >= 5) {
+  mat <- visible_mat_clean
+  mu <- colMeans(mat, na.rm = TRUE)
+  sigma <- apply(mat, 2, stats::sd, na.rm = TRUE)
+  sigma[sigma == 0] <- 1
+  z <- sweep(sweep(mat, 2, mu, "-"), 2, sigma, "/")
+  burden_per_day <- rowMeans(z, na.rm = TRUE)
+  dates <- as.Date(rownames(mat))
+
+  worst_idx <- which.max(burden_per_day)
+  best_idx <- which.min(burden_per_day)
+
+  htmltools::HTML(sprintf(
+    paste0(
+      '<p class="section-fact">',
+      'Your hardest day on this combined measure: <strong>%s</strong> (%+.1f, well above your usual). ',
+      'Your easiest: <strong>%s</strong> (%+.1f, well below). ',
+      'Calculated across <strong>%d</strong> symptom trackers — the more trackers you log, the more reliable this single number becomes.',
+      '</p>'
+    ),
+    format(dates[worst_idx], "%b %d %Y"),
+    burden_per_day[worst_idx],
+    format(dates[best_idx], "%b %d %Y"),
+    burden_per_day[best_idx],
+    ncol(mat)
+  ))
+}
+```
+
+```{webr}
+#| label: chart-burden
+#| input: ["fileText", "darkMode"]
+
+if (exists("visible_mat_clean") && ncol(visible_mat_clean) >= 5) {
+  viz <- viz_theme(darkMode)
+
+  mat <- visible_mat_clean
+  mu <- colMeans(mat, na.rm = TRUE)
+  sigma <- apply(mat, 2, stats::sd, na.rm = TRUE)
+  sigma[sigma == 0] <- 1
+  z <- sweep(sweep(mat, 2, mu, "-"), 2, sigma, "/")
+
+  burden <- data.frame(
+    odate = as.Date(rownames(mat)),
+    burden = rowMeans(z, na.rm = TRUE),
+    n_logged = rowSums(!is.na(mat))
+  )
+  burden <- burden[burden$n_logged >= 5, ]
+
+  worst <- burden[which.max(burden$burden), ]
+  best  <- burden[which.min(burden$burden), ]
+
+  ggplot(burden, aes(odate, burden)) +
+    geom_hline(yintercept = 0, colour = viz$rule, linewidth = 0.4) +
+    year_marks(burden$odate, viz, is_multi_year) +
+    geom_point(colour = viz$ink, alpha = 0.4, size = 0.9) +
+    geom_smooth(method = "loess", formula = y ~ x, se = TRUE,
+                colour = viz$accent, fill = viz$accent_soft,
+                linewidth = 1) +
+    geom_point(data = worst,
+               colour = viz$accent, fill = "white",
+               shape = 21, size = 3.2, stroke = 1.2) +
+    geom_text(data = worst,
+              aes(label = sprintf("hardest: %s", format(odate, "%d %b %Y"))),
+              vjust = -1, hjust = 0.5,
+              colour = viz$accent, size = 3.2, fontface = "italic") +
+    geom_point(data = best,
+               colour = viz$secondary, fill = "white",
+               shape = 21, size = 3.2, stroke = 1.2) +
+    geom_text(data = best,
+              aes(label = sprintf("easiest: %s", format(odate, "%d %b %Y"))),
+              vjust = 2, hjust = 0.5,
+              colour = viz$secondary, size = 3.2, fontface = "italic") +
+    coord_cartesian(clip = "off") +
+    labs(x = NULL,
+         y = "How unusual was today?",
+         title = "Daily symptom burden over time",
+         subtitle = if (is_multi_year)
+           "Above zero = worse than usual · curve shows the trend · dotted lines mark new years"
+         else
+           "Above zero = worse-than-usual day · below = better · the curve shows the underlying trend") +
+    viz$theme(base_size = 13)
+}
+```
+
+:::

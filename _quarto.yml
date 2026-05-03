@@ -43,7 +43,6 @@ webr:
   packages:
     - dplyr
     - tidyr
-    - readr
     - ggplot2
     - lubridate
     - forcats

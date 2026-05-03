@@ -1,0 +1,168 @@
+::: {.chapter-num}
+Chapter III
+:::
+
+## What hangs together {.chapter-title}
+
+::: {.chapter-lede}
+Symptoms rarely move alone.
+Some travel as a chorus, others move opposite — and a few have nothing to say to each other at all.
+The next two charts ask: which of your trackers tend to move in step?
+:::
+
+::: {.analysis-section}
+
+### Correlation matrix
+
+This is a grid where every tracker meets every other tracker.
+The colour of each square answers the question: *when this one goes up, does that one tend to go up too, or down?*
+**Warm tiles = move together** (both rise on the same days).
+**Cool tiles = move opposite** (one rises while the other falls).
+**Pale tiles = no clear relationship.**
+
+The trackers are reordered so that things that behave alike sit near each other — this makes blocks of warm or cool colour easier to spot.
+None of this proves cause-and-effect; it just tells you which of your measurements are telling overlapping stories.
+
+```{webr}
+#| label: fact-correlation
+#| input: ["fileText"]
+
+if (exists("visible_mat_clean") && ncol(visible_mat_clean) >= 3) {
+  cm <- suppressWarnings(
+    cor(visible_mat_clean, use = "pairwise.complete.obs")
+  )
+  cm[is.na(cm)] <- 0
+  diag(cm) <- NA
+
+  idx_pos <- which.max(cm)
+  rc_pos <- arrayInd(idx_pos, dim(cm))
+  pos_a <- rownames(cm)[rc_pos[1]]
+  pos_b <- colnames(cm)[rc_pos[2]]
+  pos_r <- cm[idx_pos]
+
+  idx_neg <- which.min(cm)
+  rc_neg <- arrayInd(idx_neg, dim(cm))
+  neg_a <- rownames(cm)[rc_neg[1]]
+  neg_b <- colnames(cm)[rc_neg[2]]
+  neg_r <- cm[idx_neg]
+
+  short <- function(x) sub("^.* — ", "", x)
+
+  htmltools::HTML(sprintf(
+    paste0(
+      '<p class="section-fact">',
+      'Trackers that most often rise and fall together: <strong>%s &harr; %s</strong> (strength %+0.2f, where +1 means perfectly in step). ',
+      'Trackers that most often move in opposite directions: <strong>%s &harr; %s</strong> (%+0.2f, where -1 means perfectly opposed).',
+      '</p>'
+    ),
+    short(pos_a), short(pos_b), pos_r,
+    short(neg_a), short(neg_b), neg_r
+  ))
+}
+```
+
+```{webr}
+#| label: chart-correlation
+#| input: ["fileText", "darkMode"]
+#| fig-width: 11
+#| fig-height: 11
+
+if (exists("visible_mat_clean") && ncol(visible_mat_clean) >= 3) {
+  viz <- viz_theme(darkMode)
+
+  cm <- suppressWarnings(
+    cor(visible_mat_clean, use = "pairwise.complete.obs")
+  )
+  cm[is.na(cm)] <- 0
+
+  d <- stats::as.dist(1 - abs(cm))
+  ord <- stats::hclust(d, method = "average")$order
+  cm_ord <- cm[ord, ord]
+
+  cm_df <- data.frame(
+    var1 = factor(rownames(cm_ord)[row(cm_ord)],
+                  levels = rownames(cm_ord)),
+    var2 = factor(colnames(cm_ord)[col(cm_ord)],
+                  levels = rownames(cm_ord)),
+    r = as.vector(cm_ord)
+  )
+
+  ggplot(cm_df, aes(var1, var2, fill = r)) +
+    geom_tile() +
+    scale_fill_gradient2(low = viz$secondary, mid = viz$paper_card,
+                         high = viz$accent, midpoint = 0,
+                         limits = c(-1, 1), name = "Move\ntogether →") +
+    coord_equal() +
+    labs(x = NULL, y = NULL,
+         title = "Which trackers move together?",
+         subtitle = "Warm = rise and fall in step · cool = move opposite · trackers grouped by similarity") +
+    viz$theme(base_size = 11) +
+    theme(
+      axis.text.x = element_text(angle = 45, hjust = 1, vjust = 1,
+                                  size = 9),
+      axis.text.y = element_text(size = 9),
+      panel.grid = element_blank(),
+      plot.margin = margin(10, 10, 10, 10)
+    )
+}
+```
+
+:::
+
+::: {.analysis-section}
+
+### Symptom clusters
+
+The same idea, drawn as a tree.
+Trackers that join up early (towards the right edge of the chart) move very similarly — they tell overlapping stories.
+Trackers that join far to the left are barely related.
+If two trackers you'd expect to behave similarly fall into different branches, that's a small surprise worth a second look.
+
+```{webr}
+#| label: chart-clusters
+#| input: ["fileText", "darkMode"]
+#| fig-width: 9
+#| fig-height: 9
+
+if (exists("visible_mat_clean") && ncol(visible_mat_clean) >= 3) {
+  viz <- viz_theme(darkMode)
+
+  cm <- suppressWarnings(
+    cor(visible_mat_clean, use = "pairwise.complete.obs")
+  )
+  cm[is.na(cm)] <- 0
+  d <- stats::as.dist(1 - abs(cm))
+
+  hc <- stats::hclust(d, method = "ward.D2")
+  ddata <- ggdendro::dendro_data(hc, type = "rectangle")
+  seg <- ggdendro::segment(ddata)
+  lab <- ggdendro::label(ddata)
+  lab$label <- sub("^.* — ", "", as.character(lab$label))
+
+  ggplot() +
+    geom_segment(data = seg,
+                 aes(x = x, y = y, xend = xend, yend = yend),
+                 colour = viz$ink_soft, linewidth = 0.4) +
+    geom_text(data = lab,
+              aes(x = x, y = y, label = label),
+              hjust = 0, nudge_y = -0.02,
+              colour = viz$ink_soft, size = 3.2) +
+    coord_flip(clip = "off") +
+    scale_y_reverse(expand = expansion(mult = c(0.02, 0.45))) +
+    scale_x_continuous(expand = expansion(add = 0.6)) +
+    labs(title = "Trackers that travel together",
+         subtitle = "Branches joining further right = trackers that move more alike",
+         x = NULL, y = NULL) +
+    viz$theme(base_size = 11) +
+    theme(panel.grid = element_blank(),
+          axis.text = element_blank(),
+          axis.ticks = element_blank(),
+          plot.margin = margin(15, 15, 15, 15),
+          plot.title = element_text(family = "serif",
+                                    face = "italic", size = 14,
+                                    colour = viz$ink),
+          plot.subtitle = element_text(colour = viz$muted, size = 9))
+}
+```
+
+:::

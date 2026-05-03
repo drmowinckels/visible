@@ -1,0 +1,745 @@
+::: {.chapter-num}
+Chapter VI
+:::
+
+## Pacing & recovery {.chapter-title}
+
+::: {.chapter-lede}
+The body keeps a running tab.
+What you do today often shows up two or three days later, the days that *do* knock you sideways have their own arc back to baseline, and a crash that drags on for a week is a different beast than one that lifts overnight.
+Four views of the action-and-reaction loop that defines pacing — and because patterns shift over time, this chapter focuses on your **last 12 months** when your data spans more than 18 months.
+The earlier chapters show the long view; this one tells you where you are *now*.
+:::
+
+::: {.analysis-section}
+
+### The PEM window
+
+Visible has four daily "demand" tags — *Physically active*, *Mentally demanding*, *Socially demanding*, *Emotionally stressful* — each rated 0–3.
+This chart asks, for each demand type: when you do more of this, how does your stability score move *today*, *tomorrow*, *the day after*, and so on?
+**Negative bars mean more demand → lower stability later.**
+The highlighted bar is the lag where the relationship is strongest — your personal post-exertional window for that kind of strain.
+If your worst dip lands consistently at +2 or +3 days, that's the gap you have to plan across.
+
+```{webr}
+#| label: fact-pem
+#| input: ["fileText"]
+
+if (exists("visible_recent")) {
+  exertion_trackers <- c("Physically active", "Mentally demanding",
+                         "Socially demanding", "Emotionally stressful")
+  available_ex <- intersect(exertion_trackers, unique(visible_recent$tracker))
+
+  if (length(available_ex) == 0) {
+    htmltools::HTML(
+      "<p class='section-fact'>No exertion-tag data found in your export.</p>"
+    )
+  } else {
+    ex <- visible_recent |>
+      filter(tracker %in% available_ex) |>
+      group_by(odate, tracker) |>
+      summarise(value = max(value, na.rm = TRUE), .groups = "drop") |>
+      pivot_wider(names_from = tracker, values_from = value)
+
+    stab <- visible_recent |>
+      filter(tracker == "Stability Score") |>
+      group_by(odate) |>
+      summarise(stab = mean(value, na.rm = TRUE), .groups = "drop")
+
+    d_range <- range(visible_recent$odate, na.rm = TRUE)
+    all_days <- data.frame(odate = seq.Date(d_range[1], d_range[2], "day"))
+    joined <- all_days |>
+      left_join(ex, by = "odate") |>
+      left_join(stab, by = "odate") |>
+      arrange(odate)
+
+    rows <- list()
+    for (tr in available_ex) {
+      for (L in 0:4) {
+        x <- joined[[tr]]
+        y <- lead(joined$stab, L)
+        ok <- !is.na(x) & !is.na(y)
+        if (sum(ok) < 15) next
+        r <- suppressWarnings(stats::cor(x[ok], y[ok]))
+        if (is.na(r)) next
+        rows[[length(rows) + 1]] <- data.frame(
+          tracker = tr, lag = L, r = r
+        )
+      }
+    }
+
+    if (length(rows) == 0) {
+      htmltools::HTML(
+        "<p class='section-fact'>Not enough overlapping days to compute lag.</p>"
+      )
+    } else {
+      df <- do.call(rbind, rows)
+      worst_overall <- df[which.min(df$r), ]
+
+      htmltools::HTML(sprintf(
+        paste0(
+          '<p class="section-fact">',
+          'Across <strong>%s</strong>, your strongest after-effect: <strong>%s</strong> ',
+          'tends to drag stability down <strong>%d day%s later</strong> ',
+          '(correlation %+0.2f, where -1 = perfectly opposite).',
+          '</p>'
+        ),
+        recent_label,
+        worst_overall$tracker,
+        worst_overall$lag,
+        if (worst_overall$lag == 1) "" else "s",
+        worst_overall$r
+      ))
+    }
+  }
+}
+```
+
+```{webr}
+#| label: chart-pem
+#| input: ["fileText", "darkMode"]
+#| fig-width: 9
+#| fig-height: 6
+
+if (exists("visible_recent")) {
+  viz <- viz_theme(darkMode)
+
+  exertion_trackers <- c("Physically active", "Mentally demanding",
+                         "Socially demanding", "Emotionally stressful")
+  available_ex <- intersect(exertion_trackers, unique(visible_recent$tracker))
+
+  if (length(available_ex) == 0) {
+    cat("No exertion-tag trackers found — skipping.\n")
+  } else {
+    ex <- visible_recent |>
+      filter(tracker %in% available_ex) |>
+      group_by(odate, tracker) |>
+      summarise(value = max(value, na.rm = TRUE), .groups = "drop") |>
+      pivot_wider(names_from = tracker, values_from = value)
+
+    stab <- visible_recent |>
+      filter(tracker == "Stability Score") |>
+      group_by(odate) |>
+      summarise(stab = mean(value, na.rm = TRUE), .groups = "drop")
+
+    d_range <- range(visible_recent$odate, na.rm = TRUE)
+    all_days <- data.frame(odate = seq.Date(d_range[1], d_range[2], "day"))
+    joined <- all_days |>
+      left_join(ex, by = "odate") |>
+      left_join(stab, by = "odate") |>
+      arrange(odate)
+
+    rows <- list()
+    for (tr in available_ex) {
+      for (L in 0:4) {
+        x <- joined[[tr]]
+        y <- lead(joined$stab, L)
+        ok <- !is.na(x) & !is.na(y)
+        if (sum(ok) < 15) next
+        r <- suppressWarnings(stats::cor(x[ok], y[ok]))
+        if (is.na(r)) next
+        rows[[length(rows) + 1]] <- data.frame(
+          tracker = tr, lag = L, r = r
+        )
+      }
+    }
+
+    if (length(rows) == 0) {
+      cat("Not enough overlapping days to compute lag.\n")
+    } else {
+      df <- do.call(rbind, rows)
+      df$best <- FALSE
+      for (tr in unique(df$tracker)) {
+        idx <- which(df$tracker == tr)
+        df$best[idx[which.min(df$r[idx])]] <- TRUE
+      }
+
+      best_rows <- df[df$best, ]
+      best_rows$label <- sprintf("%+d day%s",
+                                  best_rows$lag,
+                                  ifelse(best_rows$lag == 1, "", "s"))
+
+      ggplot(df, aes(factor(lag), r, fill = best)) +
+        geom_col(width = 0.75) +
+        geom_hline(yintercept = 0, colour = viz$rule, linewidth = 0.4) +
+        geom_text(data = best_rows,
+                  aes(factor(lag), r, label = label),
+                  vjust = ifelse(best_rows$r >= 0, -0.4, 1.3),
+                  colour = viz$accent, size = 3,
+                  fontface = "italic", show.legend = FALSE) +
+        facet_wrap(~ tracker, ncol = 2) +
+        scale_fill_manual(values = c(`TRUE` = viz$accent,
+                                     `FALSE` = viz$ink_soft),
+                          guide = "none") +
+        labs(x = "Days after the busy day",
+             y = "Relationship with stability",
+             title = "When does today's exertion show up in your body?",
+             subtitle = sprintf(
+               "Based on %s · negative = more demand now, lower stability later · highlighted = strongest lag",
+               recent_label)) +
+        viz$theme(base_size = 11)
+    }
+  }
+}
+```
+
+:::
+
+::: {.analysis-section}
+
+### Your personal ceiling
+
+A simpler view of the same idea.
+We bin every day by **how much you took on** — *quiet*, *light*, *moderate*, *busy*, *very busy* — based on the sum of your four demand tags.
+Then we average **the next day's stability score** within each bin.
+Reading top to bottom = doing more.
+The vertical dashed line is your typical stability across all days; bars that sit clearly to the left of it are exertion levels where your body tends to push back the next day.
+The number on each bar is how many days fell into that bin, so you can see which levels are well-evidenced and which are rare.
+
+```{webr}
+#| label: fact-envelope
+#| input: ["fileText"]
+
+if (exists("visible_recent")) {
+  exertion_trackers <- c("Physically active", "Mentally demanding",
+                         "Socially demanding", "Emotionally stressful")
+  available_ex <- intersect(exertion_trackers, unique(visible_recent$tracker))
+
+  if (length(available_ex) >= 2) {
+    ex <- visible_recent |>
+      filter(tracker %in% available_ex) |>
+      group_by(odate, tracker) |>
+      summarise(value = max(value, na.rm = TRUE), .groups = "drop") |>
+      pivot_wider(names_from = tracker, values_from = value)
+
+    stab <- visible_recent |>
+      filter(tracker == "Stability Score") |>
+      group_by(odate) |>
+      summarise(stab = mean(value, na.rm = TRUE), .groups = "drop")
+
+    joined <- ex |>
+      left_join(stab, by = "odate") |>
+      arrange(odate)
+
+    joined$total_ex <- rowSums(joined[, available_ex, drop = FALSE], na.rm = FALSE)
+    joined$next_stab <- lead(joined$stab, 1)
+
+    env <- joined[!is.na(joined$total_ex) & !is.na(joined$next_stab), ]
+
+    if (nrow(env) >= 30) {
+      med_stab <- stats::median(env$next_stab, na.rm = TRUE)
+      env$ex_bin <- cut(env$total_ex,
+                        breaks = c(-0.5, 0.5, 3.5, 6.5, 9.5, 12.5),
+                        labels = c("Quiet (0)", "Light (1–3)",
+                                   "Moderate (4–6)", "Busy (7–9)",
+                                   "Very busy (10–12)"))
+      bin_summary <- aggregate(next_stab ~ ex_bin, env, mean)
+      bin_summary$n <- as.integer(table(env$ex_bin)[bin_summary$ex_bin])
+      bin_summary <- bin_summary[bin_summary$n >= 3, ]
+
+      if (nrow(bin_summary) < 2) {
+        htmltools::HTML(sprintf(
+          "<p class='section-fact'>Not enough variation in your daily exertion (%d day-pairs from %s) to compare bins.</p>",
+          nrow(env), recent_label
+        ))
+      } else {
+        gap <- max(bin_summary$next_stab) - min(bin_summary$next_stab)
+        worst_bin <- bin_summary[which.min(bin_summary$next_stab), ]
+        best_bin <- bin_summary[which.max(bin_summary$next_stab), ]
+
+        htmltools::HTML(sprintf(
+          paste0(
+            '<p class="section-fact">',
+            'Across <strong>%d</strong> day-pairs from %s, your tomorrow-stability runs ',
+            '<strong>%.1f / 5</strong> after a <strong>%s</strong> day, ',
+            'compared with <strong>%.1f / 5</strong> after a <strong>%s</strong> one — ',
+            'a gap of <strong>%.1f points</strong>.',
+            '</p>'
+          ),
+          nrow(env), recent_label,
+          best_bin$next_stab, tolower(as.character(best_bin$ex_bin)),
+          worst_bin$next_stab, tolower(as.character(worst_bin$ex_bin)),
+          gap
+        ))
+      }
+    }
+  }
+}
+```
+
+```{webr}
+#| label: chart-envelope
+#| input: ["fileText", "darkMode"]
+#| fig-width: 9
+#| fig-height: 5
+
+if (exists("visible_recent")) {
+  viz <- viz_theme(darkMode)
+
+  exertion_trackers <- c("Physically active", "Mentally demanding",
+                         "Socially demanding", "Emotionally stressful")
+  available_ex <- intersect(exertion_trackers, unique(visible_recent$tracker))
+
+  if (length(available_ex) < 2) {
+    cat("Need at least two exertion tags to compute total daily demand.\n")
+  } else {
+    ex <- visible_recent |>
+      filter(tracker %in% available_ex) |>
+      group_by(odate, tracker) |>
+      summarise(value = max(value, na.rm = TRUE), .groups = "drop") |>
+      pivot_wider(names_from = tracker, values_from = value)
+
+    stab <- visible_recent |>
+      filter(tracker == "Stability Score") |>
+      group_by(odate) |>
+      summarise(stab = mean(value, na.rm = TRUE), .groups = "drop")
+
+    joined <- ex |>
+      left_join(stab, by = "odate") |>
+      arrange(odate)
+
+    joined$total_ex <- rowSums(joined[, available_ex, drop = FALSE], na.rm = FALSE)
+    joined$next_stab <- lead(joined$stab, 1)
+    env <- joined[!is.na(joined$total_ex) & !is.na(joined$next_stab), ]
+
+    if (nrow(env) < 30) {
+      cat(sprintf("Only %d day-pairs available — need at least 30 to summarise.\n",
+                  nrow(env)))
+    } else {
+      med_stab <- stats::median(env$next_stab, na.rm = TRUE)
+
+      env$ex_bin <- cut(env$total_ex,
+                        breaks = c(-0.5, 0.5, 3.5, 6.5, 9.5, 12.5),
+                        labels = c("Quiet (0)", "Light (1–3)",
+                                   "Moderate (4–6)", "Busy (7–9)",
+                                   "Very busy (10–12)"))
+
+      bin_summary <- env |>
+        group_by(ex_bin) |>
+        summarise(
+          n = n(),
+          mean_stab = mean(next_stab, na.rm = TRUE),
+          se = stats::sd(next_stab, na.rm = TRUE) / sqrt(n()),
+          .groups = "drop"
+        ) |>
+        filter(n >= 3)
+
+      bin_summary$ex_bin <- factor(bin_summary$ex_bin,
+                                    levels = rev(levels(bin_summary$ex_bin)))
+
+      ggplot(bin_summary,
+             aes(mean_stab, ex_bin)) +
+        geom_vline(xintercept = med_stab, linetype = "dashed",
+                   colour = viz$ink_soft, linewidth = 0.5) +
+        annotate("text",
+                 x = med_stab, y = Inf,
+                 label = sprintf("typical day (%.1f)", med_stab),
+                 vjust = -0.6, hjust = 0.5, size = 3,
+                 colour = viz$muted, fontface = "italic") +
+        geom_errorbarh(aes(xmin = pmax(1, mean_stab - se),
+                            xmax = pmin(5, mean_stab + se)),
+                       height = 0.18, colour = viz$ink_soft,
+                       linewidth = 0.5) +
+        geom_point(colour = viz$accent, size = 4) +
+        geom_text(aes(label = sprintf("n = %d", n)),
+                  hjust = -0.3, nudge_x = 0.05,
+                  colour = viz$muted, size = 3.2) +
+        scale_x_continuous(limits = c(1, 5.6),
+                           breaks = 1:5) +
+        coord_cartesian(clip = "off") +
+        labs(x = "Tomorrow's stability score",
+             y = NULL,
+             title = "Stability the day after, by how busy today was",
+             caption = sprintf(
+               "Based on %s · dot is the average · whiskers show uncertainty · n = days in each bin",
+               recent_label)) +
+        viz$theme(base_size = 12) +
+        theme(panel.grid.major.y = element_blank(),
+              plot.margin = margin(28, 25, 15, 15))
+    }
+  }
+}
+```
+
+:::
+
+::: {.analysis-section}
+
+### Crash episodes
+
+A crash that lasts a single day and a crash that drags on for a week are not the same event.
+This chart treats every consecutive run of *Crash* days as one **episode**, and uses the run length as a rough severity score — the body's own measure of how hard it was.
+Each bar is one episode; bar height is its length in days; colour groups episodes into mild (1 day), moderate (2–3 days) and severe (4+ days).
+Clusters of bars close together suggest either a stretch where you were genuinely vulnerable, or a single underlying event the body kept re-flaring on.
+
+```{webr}
+#| label: fact-crash
+#| input: ["fileText"]
+
+if (exists("visible_recent") && "Crash" %in% visible_recent$tracker) {
+  cr <- visible_recent[visible_recent$tracker == "Crash" &
+                         !is.na(visible_recent$value), ]
+  if (nrow(cr) == 0) {
+    htmltools::HTML("<p class='section-fact'>No Crash entries logged.</p>")
+  } else {
+    daily <- aggregate(value ~ odate, cr, max)
+    all_d <- data.frame(odate = seq.Date(min(cr$odate),
+                                          max(cr$odate), 1))
+    full <- merge(all_d, daily, by = "odate", all.x = TRUE)
+    full <- full[order(full$odate), ]
+    full$crashed <- !is.na(full$value) & full$value > 0
+
+    if (!any(full$crashed)) {
+      htmltools::HTML(sprintf(
+        "<p class='section-fact'>No crash days logged in %s.</p>",
+        recent_label
+      ))
+    } else {
+      r <- rle(full$crashed)
+      ends <- cumsum(r$lengths)
+      starts <- c(1L, ends[-length(ends)] + 1L)
+      ep_lengths <- r$lengths[r$values]
+      ep_starts <- full$odate[starts[r$values]]
+      worst_idx <- which.max(ep_lengths)
+
+      mild <- sum(ep_lengths == 1)
+      moderate <- sum(ep_lengths >= 2 & ep_lengths <= 3)
+      severe <- sum(ep_lengths >= 4)
+
+      htmltools::HTML(sprintf(
+        paste0(
+          '<p class="section-fact">',
+          'In %s you had <strong>%d crash episode%s</strong> ',
+          '(%d mild, %d moderate, %d severe). ',
+          'Your worst lasted <strong>%d day%s</strong> starting <strong>%s</strong>.',
+          '</p>'
+        ),
+        recent_label,
+        length(ep_lengths),
+        if (length(ep_lengths) == 1) "" else "s",
+        mild, moderate, severe,
+        ep_lengths[worst_idx],
+        if (ep_lengths[worst_idx] == 1) "" else "s",
+        format(ep_starts[worst_idx], "%a %d %b %Y")
+      ))
+    }
+  }
+} else if (exists("visible_recent")) {
+  htmltools::HTML("<p class='section-fact'>No Crash tracker in your export — skip this section.</p>")
+}
+```
+
+```{webr}
+#| label: chart-crash
+#| input: ["fileText", "darkMode"]
+#| fig-width: 9
+#| fig-height: 4.5
+
+if (exists("visible_recent") && "Crash" %in% visible_recent$tracker) {
+  viz <- viz_theme(darkMode)
+
+  cr <- visible_recent[visible_recent$tracker == "Crash" &
+                         !is.na(visible_recent$value), ]
+
+  if (nrow(cr) == 0) {
+    cat("No Crash entries logged.\n")
+  } else {
+    daily <- aggregate(value ~ odate, cr, max)
+    all_d <- data.frame(odate = seq.Date(min(cr$odate),
+                                          max(cr$odate), 1))
+    full <- merge(all_d, daily, by = "odate", all.x = TRUE)
+    full <- full[order(full$odate), ]
+    full$crashed <- !is.na(full$value) & full$value > 0
+
+    if (!any(full$crashed)) {
+      cat(sprintf("No crash days in %s — nothing to draw.\n", recent_label))
+    } else {
+      r <- rle(full$crashed)
+      ends <- cumsum(r$lengths)
+      starts <- c(1L, ends[-length(ends)] + 1L)
+      episodes <- data.frame(
+        start = full$odate[starts[r$values]],
+        length = r$lengths[r$values]
+      )
+      episodes$severity <- cut(episodes$length,
+                                breaks = c(0, 1, 3, Inf),
+                                labels = c("Mild (1 day)",
+                                           "Moderate (2–3)",
+                                           "Severe (4+)"))
+
+      pal <- c(`Mild (1 day)` = viz$secondary,
+               `Moderate (2–3)` = viz$highlight,
+               `Severe (4+)` = viz$accent)
+
+      worst_ep <- episodes[which.max(episodes$length), ]
+      worst_ep$label <- sprintf("worst: %d days from %s",
+                                 worst_ep$length,
+                                 format(worst_ep$start, "%d %b"))
+
+      ggplot(episodes, aes(start, length, fill = severity)) +
+        geom_segment(aes(xend = start, yend = 0,
+                         colour = severity),
+                     linewidth = 0.6) +
+        geom_point(aes(colour = severity), size = 2.4) +
+        geom_text(data = worst_ep,
+                  aes(start, length, label = label),
+                  vjust = -1, hjust = 0.5,
+                  colour = viz$accent, size = 3.2,
+                  fontface = "italic",
+                  inherit.aes = FALSE) +
+        coord_cartesian(clip = "off") +
+        scale_fill_manual(values = pal, name = NULL, drop = FALSE) +
+        scale_colour_manual(values = pal, name = NULL, drop = FALSE) +
+        scale_y_continuous(breaks = function(lim) {
+          seq(0, max(1, ceiling(lim[2])), by = 1)
+        }) +
+        labs(x = NULL, y = "Episode length (days)",
+             title = "Crash episodes by length",
+             subtitle = sprintf(
+               "Each bar = one consecutive run of crash days · taller = more severe · %s",
+               recent_label)) +
+        viz$theme(base_size = 12) +
+        theme(legend.position = "top",
+              plot.margin = margin(15, 15, 10, 15))
+    }
+  }
+}
+```
+
+:::
+
+::: {.analysis-section}
+
+### Recovery trajectory
+
+For every "anomaly day" found in the previous chapter — the days when many of your trackers were off at once — this chart aligns the next two weeks side by side and averages them.
+Day 0 is the bad day itself; the curves show the typical path back.
+**All three lines are flipped so that "down" always means worse than usual** — that way Stability, HRV, and Resting HR can be read together.
+If one curve climbs back to zero faster than the others, that measure is your *leading* recovery signal: it tells you the body is on the mend before the others catch up.
+
+```{webr}
+#| label: fact-recovery
+#| input: ["fileText"]
+
+if (exists("visible_mat_clean") && exists("visible") &&
+    ncol(visible_mat_clean) >= 5) {
+  mu <- colMeans(visible_mat_clean, na.rm = TRUE)
+  sigma <- apply(visible_mat_clean, 2, stats::sd, na.rm = TRUE)
+  sigma[sigma == 0] <- 1
+  z <- sweep(sweep(visible_mat_clean, 2, mu, "-"), 2, sigma, "/")
+
+  threshold <- max(3, ceiling(0.10 * ncol(visible_mat_clean)))
+  spikes <- abs(z) > 2
+  spikes[is.na(spikes)] <- FALSE
+  spike_count <- rowSums(spikes)
+  anomaly_dates <- as.Date(rownames(visible_mat_clean))[spike_count >= threshold]
+  anomaly_dates <- anomaly_dates[anomaly_dates >= recent_cutoff]
+
+  if (length(anomaly_dates) < 3) {
+    htmltools::HTML(sprintf(
+      "<p class='section-fact'>Only %d anomaly day(s) in %s — need at least 3 to draw recovery curves.</p>",
+      length(anomaly_dates), recent_label
+    ))
+  } else {
+    outcomes <- c("HR Variability", "Resting HR", "Stability Score")
+    avail <- intersect(outcomes, unique(visible$tracker))
+
+    od <- visible |>
+      filter(tracker %in% avail) |>
+      group_by(odate, tracker) |>
+      summarise(value = mean(value, na.rm = TRUE), .groups = "drop") |>
+      group_by(tracker) |>
+      mutate(
+        m = mean(value, na.rm = TRUE),
+        s = stats::sd(value, na.rm = TRUE),
+        z = (value - m) / ifelse(s == 0, 1, s),
+        z = ifelse(tracker == "Resting HR", -z, z)
+      ) |>
+      ungroup() |>
+      select(odate, tracker, z)
+
+    grid <- expand.grid(
+      anomaly = anomaly_dates,
+      days_after = 0:14,
+      tracker = avail,
+      stringsAsFactors = FALSE
+    )
+    grid$odate <- grid$anomaly + grid$days_after
+    traj <- merge(grid, od, by = c("odate", "tracker"), all.x = TRUE)
+
+    rec <- traj |>
+      group_by(tracker, days_after) |>
+      summarise(mean_z = mean(z, na.rm = TRUE),
+                       n = sum(!is.na(z)),
+                       .groups = "drop") |>
+      filter(n >= 2)
+
+    days_to_baseline <- function(df) {
+      df <- df[order(df$days_after), ]
+      day0 <- df$mean_z[df$days_after == 0]
+      if (length(day0) == 0 || day0 >= -0.1) return(NA_integer_)
+      back <- which(df$mean_z >= -0.1 & df$days_after > 0)
+      if (length(back) == 0) return(NA_integer_)
+      df$days_after[back[1]]
+    }
+
+    by_tracker <- split(rec, rec$tracker)
+    recov <- vapply(by_tracker, days_to_baseline, integer(1))
+    recov <- recov[!is.na(recov)]
+
+    if (length(recov) == 0) {
+      htmltools::HTML(sprintf(
+        paste0(
+          '<p class="section-fact">',
+          'Across <strong>%d</strong> anomaly day(s) in %s, no measure cleanly returns to ',
+          'its typical level within two weeks — recovery is slower than the window shown.',
+          '</p>'
+        ),
+        length(anomaly_dates), recent_label
+      ))
+    } else {
+      fastest <- names(recov)[which.min(recov)]
+      slowest <- names(recov)[which.max(recov)]
+
+      htmltools::HTML(sprintf(
+        paste0(
+          '<p class="section-fact">',
+          'Across <strong>%d</strong> anomaly day(s) in %s, <strong>%s</strong> returns to ',
+          'baseline fastest (~%d day%s), while <strong>%s</strong> takes longest (~%d day%s). ',
+          'The faster-recovering measure is your earlier signal that the worst is over.',
+          '</p>'
+        ),
+        length(anomaly_dates), recent_label,
+        fastest, recov[fastest],
+        if (recov[fastest] == 1) "" else "s",
+        slowest, recov[slowest],
+        if (recov[slowest] == 1) "" else "s"
+      ))
+    }
+  }
+}
+```
+
+```{webr}
+#| label: chart-recovery
+#| input: ["fileText", "darkMode"]
+#| fig-width: 9
+#| fig-height: 5
+
+if (exists("visible_mat_clean") && exists("visible") &&
+    ncol(visible_mat_clean) >= 5) {
+  viz <- viz_theme(darkMode)
+
+  mu <- colMeans(visible_mat_clean, na.rm = TRUE)
+  sigma <- apply(visible_mat_clean, 2, stats::sd, na.rm = TRUE)
+  sigma[sigma == 0] <- 1
+  z <- sweep(sweep(visible_mat_clean, 2, mu, "-"), 2, sigma, "/")
+
+  threshold <- max(3, ceiling(0.10 * ncol(visible_mat_clean)))
+  spikes <- abs(z) > 2
+  spikes[is.na(spikes)] <- FALSE
+  spike_count <- rowSums(spikes)
+  anomaly_dates <- as.Date(rownames(visible_mat_clean))[spike_count >= threshold]
+  anomaly_dates <- anomaly_dates[anomaly_dates >= recent_cutoff]
+
+  if (length(anomaly_dates) < 3) {
+    cat(sprintf("Only %d anomaly day(s) in %s — need at least 3 to average a trajectory.\n",
+                length(anomaly_dates), recent_label))
+  } else {
+    outcomes <- c("HR Variability", "Resting HR", "Stability Score")
+    avail <- intersect(outcomes, unique(visible$tracker))
+
+    od <- visible |>
+      filter(tracker %in% avail) |>
+      group_by(odate, tracker) |>
+      summarise(value = mean(value, na.rm = TRUE), .groups = "drop") |>
+      group_by(tracker) |>
+      mutate(
+        m = mean(value, na.rm = TRUE),
+        s = stats::sd(value, na.rm = TRUE),
+        z = (value - m) / ifelse(s == 0, 1, s),
+        z = ifelse(tracker == "Resting HR", -z, z)
+      ) |>
+      ungroup() |>
+      select(odate, tracker, z)
+
+    grid <- expand.grid(
+      anomaly = anomaly_dates,
+      days_after = 0:14,
+      tracker = avail,
+      stringsAsFactors = FALSE
+    )
+    grid$odate <- grid$anomaly + grid$days_after
+    traj <- merge(grid, od, by = c("odate", "tracker"), all.x = TRUE)
+
+    rec <- traj |>
+      group_by(tracker, days_after) |>
+      summarise(
+        mean_z = mean(z, na.rm = TRUE),
+        se = stats::sd(z, na.rm = TRUE) / sqrt(sum(!is.na(z))),
+        n = sum(!is.na(z)),
+        .groups = "drop"
+      ) |>
+      filter(n >= 2)
+
+    pal <- setNames(c(viz$accent, viz$secondary, viz$highlight)[seq_along(avail)],
+                    avail)
+
+    cross_zero <- function(df) {
+      df <- df[order(df$days_after), ]
+      day0 <- df$mean_z[df$days_after == 0]
+      if (length(day0) == 0 || day0 >= 0) return(NULL)
+      crossing <- which(df$mean_z >= 0 & df$days_after > 0)
+      if (length(crossing) == 0) return(NULL)
+      df[crossing[1], ]
+    }
+    crosses <- do.call(rbind, lapply(split(rec, rec$tracker), cross_zero))
+    crosses_first <- if (!is.null(crosses) && nrow(crosses) > 0) {
+      first_day <- min(crosses$days_after)
+      crosses[crosses$days_after == first_day, ][1, ]
+    } else NULL
+
+    p <- ggplot(rec, aes(days_after, mean_z, colour = tracker, fill = tracker)) +
+      geom_hline(yintercept = 0, colour = viz$rule, linewidth = 0.4) +
+      geom_vline(xintercept = 0, colour = viz$ink_soft,
+                 linetype = "dotted", linewidth = 0.4) +
+      geom_ribbon(aes(ymin = mean_z - se, ymax = mean_z + se),
+                  colour = NA, alpha = 0.18) +
+      geom_line(linewidth = 1) +
+      geom_point(size = 1.6) +
+      scale_colour_manual(values = pal, name = NULL) +
+      scale_fill_manual(values = pal, guide = "none") +
+      scale_x_continuous(breaks = seq(0, 14, 2)) +
+      labs(x = "Days after a hard day",
+           y = "Distance from typical (lower = worse)",
+           title = "How long does it take to bounce back?",
+           subtitle = sprintf(
+             "Averaged across %d anomaly day(s) in %s · all measures flipped so down = worse",
+             length(anomaly_dates), recent_label)) +
+      viz$theme(base_size = 12) +
+      theme(legend.position = "top",
+            plot.margin = margin(15, 25, 15, 15))
+
+    if (!is.null(crosses_first)) {
+      p <- p +
+        geom_point(data = crosses_first,
+                   aes(days_after, mean_z),
+                   colour = pal[crosses_first$tracker],
+                   fill = "white", shape = 21, size = 4, stroke = 1.4,
+                   inherit.aes = FALSE) +
+        geom_text(data = crosses_first,
+                  aes(days_after, mean_z,
+                      label = sprintf("%s back to baseline by day %d",
+                                       tracker, days_after)),
+                  hjust = -0.1, vjust = -0.8,
+                  colour = pal[crosses_first$tracker],
+                  size = 3.2, fontface = "italic",
+                  inherit.aes = FALSE) +
+        coord_cartesian(clip = "off")
+    }
+    p
+  }
+}
+```
+
+:::
