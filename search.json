@@ -1,0 +1,128 @@
+[
+  {
+    "objectID": "index.html",
+    "href": "index.html",
+    "title": "Visible Explorer",
+    "section": "",
+    "text": "Your data never leaves your browser. This page runs R locally in your browser using WebR. The CSV you upload is processed in-memory on your machine — nothing is sent to a server."
+  },
+  {
+    "objectID": "index.html#upload-your-data",
+    "href": "index.html#upload-your-data",
+    "title": "Visible Explorer",
+    "section": "Upload your data",
+    "text": "Upload your data\nExport your data from the Visible app (Settings → Export Data), then drop the resulting visible.csv here.\n\nviewof file = Inputs.file({\n  label: \"Visible CSV export\",\n  accept: \".csv,.txt\"\n})\n\n\n\n\n\n\n\nfileText = file ? await file.text() : \"\"\n\n\n\n\n\n\n\nhasData = {\n  if (fileText) {\n    document.body.classList.add('has-data');\n  } else {\n    document.body.classList.remove('has-data');\n  }\n  return fileText ? true : false;\n}\n\n\n\n\n\n\n\ndarkMode = Generators.observe(notify =&gt; {\n  const read = () =&gt; notify(document.body.classList.contains('quarto-dark'));\n  read();\n  const obs = new MutationObserver(read);\n  obs.observe(document.body, { attributes: true, attributeFilter: ['class'] });\n  return () =&gt; obs.disconnect();\n})\n\n\n\n\n\n\n\nhtml`&lt;div class=\"upload-status ${fileText ? 'active' : 'idle'}\"&gt;\n  ${fileText\n    ? html`&lt;span class=\"spinner\"&gt;&lt;/span&gt; &lt;strong&gt;Reading your data, right here in your browser…&lt;/strong&gt; Charts appear below as each one finishes. The first load takes 15–30 seconds while R wakes up — after that, everything updates as you click around.`\n    : html`&lt;em&gt;No file picked yet — choose your &lt;code&gt;visible.csv&lt;/code&gt; above to begin.&lt;/em&gt;`}\n&lt;/div&gt;`\n\n\n\n\n\n\n\nOnce you upload, you’ll get a tour through your data in six short chapters: how much you’ve been logging and where, how your stability and heart-rate measures have moved over time, which trackers tend to travel together, when things seemed to shift, how your menstrual cycle and functional capacity look, and tools to dig into a single tracker, compare two, or revisit your toughest days. None of it leaves your machine.\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\nChapter I"
+  },
+  {
+    "objectID": "index.html#a-first-glance",
+    "href": "index.html#a-first-glance",
+    "title": "Visible Explorer",
+    "section": "A first glance",
+    "text": "A first glance\n\nBefore we look at any patterns, it’s worth seeing the shape of what you’ve been keeping. Which kinds of things you log most often tells us a lot about where to look next — and what the rest of this page can and can’t tell you.\n\n\nSnapshot\nThe bars below count every observation in your export, grouped by category. The longest bar is what you log most. If a category has only a handful of entries, the patterns later on in this page will be wobbly for that category — there’s just not much to go on.\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\nChapter II"
+  },
+  {
+    "objectID": "index.html#through-time",
+    "href": "index.html#through-time",
+    "title": "Visible Explorer",
+    "section": "Through time",
+    "text": "Through time\n\nA year of mornings becomes a year of measurements. Three numbers carry most of the weight in Visible — Stability Score, Heart Rate Variability (HRV), and Resting Heart Rate — and looking at how they’ve moved is usually where insight starts.\n\n\nSmoothed trends\nEach dot is one day. The curved line through the dots is a trend line — it ignores the noise of any one morning and shows the underlying direction. Look for the slope of that line: a slow climb in HRV or Stability over months is a real signal even if any individual day looks all over the place. A drift downward in HRV alongside a climb in Resting Heart Rate is a classic pattern when the body is under more strain than usual.\n\n\n\n\n\n\n\n\n\n\nStability calendar\n\n\n\n\n\n\n\n\nEach tile is a day. Colour shows the morning Stability Score (1–5). Reads like a wall calendar: weeks march left-to-right, weekdays stack top-to-bottom. Muted tiles are days you didn’t log. Look for streaks (long runs of similar colour) and breaks (a sudden colour change) — those are the moments worth pairing with whatever was happening in your life that week.\n\n\n\n\n\n\n\n\n\n\nChapter III"
+  },
+  {
+    "objectID": "index.html#what-hangs-together",
+    "href": "index.html#what-hangs-together",
+    "title": "Visible Explorer",
+    "section": "What hangs together",
+    "text": "What hangs together\n\nSymptoms rarely move alone. Some travel as a chorus, others move opposite — and a few have nothing to say to each other at all. The next two charts ask: which of your trackers tend to move in step?\n\n\nCorrelation matrix\nThis is a grid where every tracker meets every other tracker. The colour of each square answers the question: when this one goes up, does that one tend to go up too, or down? Warm tiles = move together (both rise on the same days). Cool tiles = move opposite (one rises while the other falls). Pale tiles = no clear relationship.\nThe trackers are reordered so that things that behave alike sit near each other — this makes blocks of warm or cool colour easier to spot. None of this proves cause-and-effect; it just tells you which of your measurements are telling overlapping stories.\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\nSymptom clusters\nThe same idea, drawn as a tree. Trackers that join up early (towards the right edge of the chart) move very similarly — they tell overlapping stories. Trackers that join far to the left are barely related. If two trackers you’d expect to behave similarly fall into different branches, that’s a small surprise worth a second look.\n\n\n\n\n\n\n\n\n\n\nChapter IV"
+  },
+  {
+    "objectID": "index.html#where-things-shift",
+    "href": "index.html#where-things-shift",
+    "title": "Visible Explorer",
+    "section": "Where things shift",
+    "text": "Where things shift\n\nTwo ways to ask “when did something change?” — first, the moments where one tracker’s typical level seems to step up or down; then, a single number per day for how unusual the whole day was.\n\n\nChange points\nA statistical method scans your HRV and Stability Score timelines and looks for moments where the typical value clearly shifted up or down — not just for a day or two, but settled into a new baseline. The dashed lines mark those moments. Pair them with your memory: did anything change in your life around those dates? A new medication, an infection, a season change, a stressful stretch? Up to five shifts per tracker are shown. If there are no lines, your baseline has stayed roughly steady — also useful to know.\n\n\n\n\n\n\n\n\n\n\nDaily symptom burden\nThis boils every day down to a single number: across all your symptom trackers, how unusual was today compared to your own typical day? Zero is your usual day. Positive values mean a worse-than-usual day across multiple trackers at once; negative values mean an easier-than-usual one. The thin line is each individual day (jumpy by nature); the thick curve smooths over the noise to show the underlying drift. A long stretch above zero is a flare; a slow tilt downward over months is recovery; bouncing tightly around zero is stability.\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\nChapter V"
+  },
+  {
+    "objectID": "index.html#cycles-capacity",
+    "href": "index.html#cycles-capacity",
+    "title": "Visible Explorer",
+    "section": "Cycles & capacity",
+    "text": "Cycles & capacity\n\nTwo body-rhythm views. First, how your symptoms move across the menstrual cycle — for many people with long COVID or ME/CFS, that cycle interacts strongly with the rest of how the body feels. Then, how your everyday functional capacity has shifted across eight domains of daily living.\n\n\nMenstrual cycle\nIf your export has a Period tracker with at least a couple of full cycles, every cycle gets lined up so day 1 is the first day of bleeding, then your Stability and HRV are averaged at each cycle day across all the cycles. Look for repeated dips or peaks at the same point in the cycle — those are patterns that recur every month and may be worth planning around. The shaded ribbon shows how much variability there is around each day’s average; thin ribbons mean the pattern is consistent across cycles, wide ribbons mean cycles vary a lot.\nThe four phase bands — Menstrual, Follicular, Ovulatory, Luteal — are labelled along the top of each panel using textbook day-ranges, and the dotted vertical line marks the typical day of ovulation (around day 14). Your own cycle won’t match a textbook exactly, but it’s a useful frame for reading the pattern. Cycles shorter than 18 days or longer than 45 are dropped (likely incomplete or merged).\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\nFunctional capacity\nThe FUNCAP-27 questionnaire asks how limited you’ve been in eight everyday domains — things like standing, concentrating, socialising, self-care. Higher on the y-axis means more limited. Each panel is one domain. The dots are individual days; the curve shows the underlying trend. Panels are ordered by how limited you’ve been recently — so the worst-affected domains are at the top-left. A curve that’s been climbing means that area of life has gotten harder; one that’s been falling means it’s eased.\n\n\n\n\n\n\n\n\n\n\nChapter VI"
+  },
+  {
+    "objectID": "index.html#look-closer",
+    "href": "index.html#look-closer",
+    "title": "Visible Explorer",
+    "section": "Look closer",
+    "text": "Look closer\n\nPick a tracker to dig into. Compare two side by side. Revisit your written notes alongside that day’s measurements. Find the days where everything was off at once. Same data, four different lenses — use these when something earlier in the page sparked a question.\n\n\nA single tracker, in detail\nPick any tracker from the list and see three views of it at once: how it has moved over time, the shape of its distribution (where most of your values land), and whether it tends to be different on certain days of the week. The day-of-week panel can be a quiet revelation — many people find their measurements dip on Mondays after a busy weekend, or improve on Sundays.\n\ntrackerList = {\n  if (!fileText) return [];\n  const lines = fileText.split('\\n');\n  const set = new Set();\n  for (let i = 1; i &lt; lines.length; i++) {\n    const cols = lines[i].split(',');\n    if (cols.length &gt;= 4) {\n      const name = cols[1]?.trim();\n      if (name && name !== 'Note') set.add(name);\n    }\n  }\n  return [...set].sort();\n}\n\n\n\n\n\n\n\noutcomeList = {\n  const outcomes = [\"Stability Score\", \"HR Variability\", \"Resting HR\", \"Sleep\"];\n  return outcomes.filter(t =&gt; trackerList.includes(t));\n}\n\n\n\n\n\n\n\nviewof selectedTracker = Inputs.select(outcomeList, {\n  label: \"Tracker\",\n  value: outcomeList.includes(\"Stability Score\") ? \"Stability Score\" : outcomeList[0]\n})\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\nYour notes, in context\nDays you wrote a note, with the morning HRV and Stability Score for that day. Most recent first. Hover or scroll for more.\n\n\n\n\n\n\n\n\n\n\nTwo trackers, side by side\nLay any two trackers over the same timeline. Because they’re often measured in completely different units (HRV in milliseconds vs Stability on a 1–5 scale, say), each is rescaled so that zero is its own typical value — that way the two lines are on the same visual footing and you can actually see them move together or apart.\nThe smaller chart underneath asks a more subtle question: does one tracker tend to lead the other? If symptoms tend to flare a few days after a drop in HRV, the lag chart will show its strongest bar at a positive lag. If they tend to come together on the same day, the strongest bar will be right in the middle. This is suggestive, not proof — but it’s a useful nudge towards what to investigate next.\n\nviewof trackerA = Inputs.select(trackerList, {\n  label: \"Tracker A\",\n  value: trackerList.includes(\"HR Variability\") ? \"HR Variability\" : trackerList[0]\n})\n\n\n\n\n\n\n\nviewof trackerB = Inputs.select(trackerList, {\n  label: \"Tracker B\",\n  value: trackerList.includes(\"Stability Score\") ? \"Stability Score\" :\n         (trackerList.includes(\"Resting HR\") ? \"Resting HR\" : trackerList[1] || trackerList[0])\n})\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\nAnomaly days\nFor every tracker, every day, we ask: was today unusually far from your typical value for this tracker? Then we count, per day, how many of your trackers were unusual at the same time. A day where lots of things were off at once is more likely to be a meaningful event than a day where one number happened to be a bit high. The highlighted bars cross the threshold; the table below picks out your top few and shows which trackers were doing what.\nThese are the days worth pairing with your written notes — and worth noticing if a pattern repeats (e.g. always the day after a big social outing)."
+  },
+  {
+    "objectID": "index.html#a-few-honest-reminders",
+    "href": "index.html#a-few-honest-reminders",
+    "title": "Visible Explorer",
+    "section": "A few honest reminders",
+    "text": "A few honest reminders\nBefore you act on anything you’ve seen here, a few things worth holding in mind.\n\nPatterns are not causes. If two trackers move together, it doesn’t mean one is causing the other. They might both be downstream of something else — sleep, hormones, infection, weather, the stress of the week. Treat what you find as questions, not answers.\nSparse data is wobbly. Trackers you’ve only logged a handful of times will produce shaky-looking curves. The longer you log, the more solid every chart on this page becomes.\nYour body is the expert. These charts can surface a pattern you hadn’t noticed, but they can’t tell you how you feel. Cross-check anything striking against your own memory of that period.\nBring it to someone who can help. If a chart raises a real concern — a clear downward trend, a change-point that lines up with new symptoms — that’s a useful conversation to have with a clinician who knows you."
+  },
+  {
+    "objectID": "index.html#whats-next",
+    "href": "index.html#whats-next",
+    "title": "Visible Explorer",
+    "section": "What’s next",
+    "text": "What’s next\nA few things I’d like to add, when there’s time:\n\nDownload your figures — save individual plots as PDF for sharing with a clinician.\nMore long-COVID-specific lenses — PEM-window detection, post-exertional patterns, rolling pacing scores.\nSuggestions welcome — if there’s a chart you wish you could see, the GitHub link in the navbar is the place to ask."
+  },
+  {
+    "objectID": "about.html",
+    "href": "about.html",
+    "title": "About Visible Explorer",
+    "section": "",
+    "text": "Visible Explorer is a private, in-browser tool for people who use the Visible app to track long COVID, ME/CFS, or related conditions. It lets you upload your own data export and see analyses adapted from blog posts by Dr. Mowinckel — without your data ever leaving your computer."
+  },
+  {
+    "objectID": "about.html#what-is-this",
+    "href": "about.html#what-is-this",
+    "title": "About Visible Explorer",
+    "section": "",
+    "text": "Visible Explorer is a private, in-browser tool for people who use the Visible app to track long COVID, ME/CFS, or related conditions. It lets you upload your own data export and see analyses adapted from blog posts by Dr. Mowinckel — without your data ever leaving your computer."
+  },
+  {
+    "objectID": "about.html#how-is-it-private",
+    "href": "about.html#how-is-it-private",
+    "title": "About Visible Explorer",
+    "section": "How is it private?",
+    "text": "How is it private?\nEvery analysis runs locally inside your browser using WebR, a build of R that runs as WebAssembly. When you select a CSV file, it’s read into memory in your browser tab. There is no upload to a server, no cookie, no tracking. Close the tab and the data is gone.\nYou can verify this by opening your browser’s developer tools (Network tab) and watching: the only requests are for static page assets and the WebR runtime files. None of them carry your CSV."
+  },
+  {
+    "objectID": "about.html#how-do-i-get-my-data-out-of-visible",
+    "href": "about.html#how-do-i-get-my-data-out-of-visible",
+    "title": "About Visible Explorer",
+    "section": "How do I get my data out of Visible?",
+    "text": "How do I get my data out of Visible?\nIn the Visible app: Settings → Export Data. You’ll receive a visible.csv file. That’s the file to upload here."
+  },
+  {
+    "objectID": "about.html#whats-included",
+    "href": "about.html#whats-included",
+    "title": "About Visible Explorer",
+    "section": "What’s included",
+    "text": "What’s included\nThe page is laid out as six short chapters, each answering a different question about your data:\n\nA first glance — what you’ve been logging, and how much of it. A reality check on which patterns later in the page will be solid and which will be wobbly.\nThrough time — how Stability Score, HRV and Resting Heart Rate have moved over months. A calendar view of every morning’s stability, so streaks and breaks jump out.\nWhat hangs together — which of your trackers tend to move in step (and which move opposite). A grid view and a tree view of the same idea.\nWhere things shift — moments your baseline seems to have stepped up or down. A single number per day for how unusual the whole day was, plotted across your timeline.\nCycles & capacity — how your symptoms look across the menstrual cycle (if you log a Period tracker), and how your functional capacity has shifted across eight everyday domains.\nLook closer — interactive tools to dig into any one tracker, compare two, revisit your written notes alongside the day’s measurements, or surface the days where everything was off at once.\n\nEvery chart sits next to plain-language guidance on what to look for and how to read it."
+  },
+  {
+    "objectID": "about.html#who-made-this",
+    "href": "about.html#who-made-this",
+    "title": "About Visible Explorer",
+    "section": "Who made this",
+    "text": "Who made this\nHi — I’m Dr. Athanasia Mo Mowinckel. I’m a staff scientist at the Center for Lifespan Changes in Brain and Cognition (LCBC) at the University of Oslo, where I lead data management for our research group and the Lifebrain EU project. My PhD is in cognitive neuroscience, and most of my day-to-day is wrangling longitudinal brain-and-behaviour data — usually in R.\nThe analyses on this page started as blog posts where I was working through my own Visible export, trying to make sense of what was happening. This site is the same code, repackaged so you can run it on yours, on your machine, without any of it touching mine.\nOn the open-source side I co-lead R-Ladies Oslo, help out on the R-Ladies Global team, and maintain the ggseg family of R packages for brain visualisation. If something here is broken — or if you’d like to see another chart — the GitHub link in the navbar is the best place to flag it.\nI’m a researcher, not a clinician. See the disclaimer below."
+  },
+  {
+    "objectID": "about.html#credits",
+    "href": "about.html#credits",
+    "title": "About Visible Explorer",
+    "section": "Credits",
+    "text": "Credits\n\nBrowser-side R via r-wasm/webr and the r-wasm/quarto-live Quarto extension.\nVisible is a trademark of Visible Health Inc.; this site is independent and not affiliated."
+  },
+  {
+    "objectID": "about.html#disclaimer",
+    "href": "about.html#disclaimer",
+    "title": "About Visible Explorer",
+    "section": "Disclaimer",
+    "text": "Disclaimer\nThis is not a medical tool. The analyses are exploratory and personal. Decisions about your health should be made with your clinician."
+  }
+]
