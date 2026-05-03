@@ -1,0 +1,52 @@
+project:
+  type: website
+  output-dir: _site
+
+website:
+  title: "Visible Explorer"
+  description: "Upload your Visible app export and explore your long COVID / ME-CFS tracking data — analyses run entirely in your browser via WebR. No data leaves your device."
+  favicon: favicon.svg
+  navbar:
+    background: light
+    foreground: "#1F1A14"
+    pinned: false
+    collapse-below: lg
+    left:
+      - href: index.qmd
+        text: Explore
+      - href: about.qmd
+        text: About
+    right:
+      - icon: github
+        href: https://github.com/
+        aria-label: "GitHub repository"
+
+format:
+  live-html:
+    theme:
+      light: flatly
+      dark: darkly
+    toc: true
+    toc-location: right
+    page-layout: full
+    css: styles.css
+    include-in-header:
+      - text: |
+          <link rel="preconnect" href="https://fonts.googleapis.com">
+          <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+          <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght,SOFT@0,9..144,300..700,30..100;1,9..144,300..700,30..100&family=Hanken+Grotesk:ital,wght@0,300..700;1,300..700&family=JetBrains+Mono:wght@400;500&display=swap">
+          <meta name="description" content="Upload your Visible app export and explore your long COVID / ME-CFS tracking data privately. Analyses run entirely in your browser via WebR — no data leaves your device.">
+
+engine: knitr
+
+webr:
+  packages:
+    - dplyr
+    - tidyr
+    - readr
+    - ggplot2
+    - lubridate
+    - forcats
+    - ggdendro
+    - changepoint
+    - patchwork

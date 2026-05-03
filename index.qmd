@@ -1,0 +1,1619 @@
+---
+title: "Visible Explorer"
+subtitle: "Upload your Visible export and explore your tracking data — privately"
+engine: knitr
+format:
+  live-html:
+    page-layout: full
+    toc: true
+    toc-location: right
+---
+
+{{< include _extensions/r-wasm/live/_knitr.qmd >}}
+
+::: {.callout-note appearance="simple"}
+**Your data never leaves your browser.** This page runs R locally in your browser using [WebR](https://docs.r-wasm.org/webr/). The CSV you upload is processed in-memory on your machine — nothing is sent to a server.
+:::
+
+## Upload your data
+
+Export your data from the Visible app (**Settings → Export Data**), then drop the resulting `visible.csv` here.
+
+```{ojs}
+//| label: ojs-file-picker
+//| echo: false
+viewof file = Inputs.file({
+  label: "Visible CSV export",
+  accept: ".csv,.txt"
+})
+```
+
+```{ojs}
+//| label: ojs-file-text
+//| echo: false
+//| output: false
+fileText = file ? await file.text() : ""
+```
+
+```{ojs}
+//| label: ojs-has-data
+//| echo: false
+//| output: false
+hasData = {
+  if (fileText) {
+    document.body.classList.add('has-data');
+  } else {
+    document.body.classList.remove('has-data');
+  }
+  return fileText ? true : false;
+}
+```
+
+```{ojs}
+//| label: ojs-dark-mode
+//| echo: false
+//| output: false
+darkMode = Generators.observe(notify => {
+  const read = () => notify(document.body.classList.contains('quarto-dark'));
+  read();
+  const obs = new MutationObserver(read);
+  obs.observe(document.body, { attributes: true, attributeFilter: ['class'] });
+  return () => obs.disconnect();
+})
+```
+
+```{ojs}
+//| label: ojs-upload-status
+//| echo: false
+html`<div class="upload-status ${fileText ? 'active' : 'idle'}">
+  ${fileText
+    ? html`<span class="spinner"></span> <strong>Reading your data, right here in your browser…</strong> Charts appear below as each one finishes. The first load takes 15–30 seconds while R wakes up — after that, everything updates as you click around.`
+    : html`<em>No file picked yet — choose your <code>visible.csv</code> above to begin.</em>`}
+</div>`
+```
+
+::: {.empty-state-hint}
+Once you upload, you'll get a tour through your data in six short chapters: how much you've been logging and where, how your stability and heart-rate measures have moved over time, which trackers tend to travel together, when things seemed to shift, how your menstrual cycle and functional capacity look, and tools to dig into a single tracker, compare two, or revisit your toughest days. None of it leaves your machine.
+:::
+
+::: {.analysis-section}
+
+```{webr}
+#| label: setup-data
+#| echo: false
+#| autorun: true
+#| input: ["fileText"]
+#| output: true
+
+viz_theme <- function(dark = FALSE) {
+  pal <- if (isTRUE(dark)) {
+    list(paper = "#1F2728", paper_card = "#2F3839",
+         ink = "#F7E1D7", ink_soft = "#DEDBD2",
+         muted = "#A8B0A6", rule = "#4A5759",
+         accent = "#EDAFB8", accent_soft = "#EDAFB833",
+         secondary = "#B0C4B1",
+         highlight = "#E5BD7A",
+         cal_low = "#4A2A33", cal_high = "#F7E1D7", cal_na = "#3A4445")
+  } else {
+    list(paper = "#F7E1D7", paper_card = "#FCEFE8",
+         ink = "#3D4849", ink_soft = "#4A5759",
+         muted = "#566365", rule = "#B5ACA0",
+         accent = "#8E3A4A", accent_soft = "#8E3A4A33",
+         secondary = "#3F5E45",
+         highlight = "#C99A4A",
+         cal_low = "#5C2A37", cal_high = "#EDAFB8", cal_na = "#C8C0B5")
+  }
+  pal$theme <- function(base_size = 13) {
+    ggplot2::theme_minimal(base_size = base_size) +
+      ggplot2::theme(
+        plot.background  = ggplot2::element_rect(fill = pal$paper_card, colour = NA),
+        panel.background = ggplot2::element_rect(fill = pal$paper_card, colour = NA),
+        text             = ggplot2::element_text(colour = pal$ink_soft),
+        plot.title       = ggplot2::element_text(colour = pal$ink,
+                                                  family = "serif",
+                                                  face = "italic"),
+        plot.subtitle    = ggplot2::element_text(colour = pal$muted),
+        axis.text        = ggplot2::element_text(colour = pal$muted),
+        axis.title       = ggplot2::element_text(colour = pal$ink_soft),
+        strip.text       = ggplot2::element_text(colour = pal$ink_soft,
+                                                  face = "italic"),
+        legend.text      = ggplot2::element_text(colour = pal$muted),
+        legend.title     = ggplot2::element_text(colour = pal$ink_soft),
+        panel.grid.major = ggplot2::element_line(colour = pal$rule,
+                                                  linewidth = 0.3),
+        panel.grid.minor = ggplot2::element_blank()
+      )
+  }
+  pal
+}
+
+if (!nzchar(fileText)) {
+  invisible(NULL)
+} else {
+  raw <- read.csv(text = fileText, stringsAsFactors = FALSE)
+  required <- c("observation_date", "tracker_name",
+                "tracker_category", "observation_value")
+  missing <- setdiff(required, names(raw))
+  if (length(missing) > 0) {
+    stop("Uploaded file is missing column(s): ",
+         paste(missing, collapse = ", "),
+         "\nMake sure you exported the file from Settings → Export Data.")
+  }
+
+  notes_df <- raw |>
+    dplyr::filter(tracker_name == "Note",
+                  !is.na(observation_value),
+                  nchar(observation_value) > 0) |>
+    dplyr::transmute(
+      odate = as.Date(observation_date),
+      note = observation_value
+    ) |>
+    dplyr::arrange(dplyr::desc(odate))
+
+  visible <- raw |>
+    dplyr::filter(tracker_name != "Note") |>
+    dplyr::transmute(
+      odate = as.Date(observation_date),
+      category = tracker_category,
+      tracker = tracker_name,
+      value = suppressWarnings(as.numeric(observation_value))
+    )
+
+  cat(sprintf(
+    "Loaded %s observations across %s days (%s → %s).\n%s unique trackers across %s categories.\n",
+    format(nrow(visible), big.mark = ","),
+    length(unique(visible$odate)),
+    min(visible$odate, na.rm = TRUE),
+    max(visible$odate, na.rm = TRUE),
+    length(unique(visible$tracker)),
+    length(unique(visible$category))
+  ))
+}
+```
+
+:::
+
+```{webr}
+#| label: prep-matrix
+#| echo: false
+#| autorun: true
+#| input: ["fileText"]
+#| output: false
+
+if (exists("visible")) {
+  visible_wide <- visible |>
+    dplyr::filter(!grepl("^Funcap", category)) |>
+    dplyr::group_by(odate, category, tracker) |>
+    dplyr::summarise(value = mean(value, na.rm = TRUE), .groups = "drop") |>
+    tidyr::unite("var", category, tracker, sep = " — ") |>
+    tidyr::pivot_wider(names_from = var, values_from = value)
+
+  visible_mat <- as.matrix(visible_wide[, -1])
+  rownames(visible_mat) <- as.character(visible_wide$odate)
+
+  keep <- apply(visible_mat, 2, function(x) {
+    n_obs <- sum(!is.na(x))
+    n_obs > 5 && stats::var(x, na.rm = TRUE) > 0
+  })
+  visible_mat_clean <- visible_mat[, keep, drop = FALSE]
+}
+```
+
+::: {.analysis-section}
+
+```{webr}
+#| label: summary-hero
+#| echo: false
+#| autorun: true
+#| input: ["fileText"]
+#| warning: false
+
+if (exists("visible")) {
+  # WebR's emscripten libc doesn't support GNU's %-d flag; strip the leading
+  # zero from %d ourselves so dates read "1 Apr" not "01 Apr" or "-d Apr".
+  fmt_date <- function(d) {
+    d <- as.Date(d)
+    sub("^0", "", format(d, "%d %b %Y"))
+  }
+
+  total_obs <- nrow(visible)
+  total_days <- length(unique(visible$odate))
+  d_range <- range(visible$odate, na.rm = TRUE)
+  n_trackers <- length(unique(visible$tracker))
+  n_cats <- length(unique(visible$category))
+
+  stab <- visible[visible$tracker == "Stability Score" &
+                    !is.na(visible$value), ]
+  stab_text <- ""
+  if (nrow(stab) >= 14) {
+    stab$week <- as.Date(cut(stab$odate, "week"))
+    weekly <- aggregate(value ~ week, stab, mean)
+    weekly <- weekly[order(weekly$value, decreasing = TRUE), ]
+    best <- weekly[1, ]
+    worst <- weekly[nrow(weekly), ]
+    stab_text <- sprintf(
+      " Your most stable week began <strong>%s</strong>; your hardest, <strong>%s</strong>.",
+      fmt_date(best$week), fmt_date(worst$week)
+    )
+  }
+
+  n_notes <- if (exists("notes_df")) nrow(notes_df) else 0
+  notes_text <- if (n_notes > 0) {
+    sprintf(" You wrote <strong>%s note%s</strong>.",
+            format(n_notes, big.mark = ","),
+            if (n_notes == 1) "" else "s")
+  } else ""
+
+  htmltools::HTML(sprintf(
+    paste0(
+      '<div class="hero-summary"><p>',
+      'Across <strong>%s days</strong> from <strong>%s</strong> to <strong>%s</strong>, ',
+      'you logged <strong>%s observations</strong> across ',
+      '<strong>%s trackers</strong> in <strong>%s categories</strong>.',
+      '%s%s',
+      '</p></div>'
+    ),
+    format(total_days, big.mark = ","),
+    fmt_date(d_range[1]),
+    fmt_date(d_range[2]),
+    format(total_obs, big.mark = ","),
+    format(n_trackers, big.mark = ","),
+    format(n_cats, big.mark = ","),
+    stab_text, notes_text
+  ))
+}
+```
+
+:::
+
+::: {.chapter-num}
+Chapter I
+:::
+
+## A first glance {.chapter-title}
+
+::: {.chapter-lede}
+Before we look at any patterns, it's worth seeing the shape of what you've been keeping. Which kinds of things you log most often tells us a lot about where to look next — and what the rest of this page can and can't tell you.
+:::
+
+::: {.analysis-section}
+
+### Snapshot
+
+The bars below count every observation in your export, grouped by category. The longest bar is what you log most. If a category has only a handful of entries, the patterns later on in this page will be wobbly for that category — there's just not much to go on.
+
+```{webr}
+#| label: fact-snapshot
+#| echo: false
+#| autorun: true
+#| input: ["fileText"]
+#| warning: false
+
+if (exists("visible")) {
+  cat_n <- sort(table(visible$category), decreasing = TRUE)
+  top_cat <- names(cat_n)[1]
+  top_n   <- as.integer(cat_n[1])
+  bot_cat <- names(cat_n)[length(cat_n)]
+  bot_n   <- as.integer(cat_n[length(cat_n)])
+
+  htmltools::HTML(sprintf(
+    paste0(
+      '<p class="section-fact">',
+      'Your most-tracked category is <strong>%s</strong> ',
+      '(<strong>%s</strong> observations); your least-tracked is ',
+      '<strong>%s</strong> (<strong>%s</strong>).',
+      '</p>'
+    ),
+    top_cat, format(top_n, big.mark = ","),
+    bot_cat, format(bot_n, big.mark = ",")
+  ))
+}
+```
+
+```{webr}
+#| label: chart-snapshot
+#| echo: false
+#| autorun: true
+#| input: ["fileText", "darkMode"]
+
+if (exists("visible")) {
+  library(ggplot2)
+  viz <- viz_theme(darkMode)
+  visible |>
+    dplyr::count(category, sort = TRUE) |>
+    dplyr::mutate(category = forcats::fct_reorder(category, n)) |>
+    ggplot(aes(n, category)) +
+    geom_col(fill = viz$secondary) +
+    labs(x = "Observations", y = NULL,
+         title = "Tracker volume by category") +
+    viz$theme(base_size = 13)
+}
+```
+
+:::
+
+::: {.chapter-num}
+Chapter II
+:::
+
+## Through time {.chapter-title}
+
+::: {.chapter-lede}
+A year of mornings becomes a year of measurements. Three numbers carry most of the weight in Visible — Stability Score, Heart Rate Variability (HRV), and Resting Heart Rate — and looking at how they've moved is usually where insight starts.
+:::
+
+::: {.analysis-section}
+
+### Smoothed trends
+
+Each dot is one day. The curved line through the dots is a **trend line** — it ignores the noise of any one morning and shows the underlying direction. Look for the slope of that line: a slow climb in HRV or Stability over months is a real signal even if any individual day looks all over the place. A drift downward in HRV alongside a climb in Resting Heart Rate is a classic pattern when the body is under more strain than usual.
+
+```{webr}
+#| label: chart-trends
+#| echo: false
+#| autorun: true
+#| input: ["fileText", "darkMode"]
+
+if (exists("visible")) {
+  library(ggplot2)
+  viz <- viz_theme(darkMode)
+  visible |>
+    dplyr::filter(category == "Measurement",
+                  tracker %in% c("HR Variability", "Resting HR",
+                                 "Stability Score")) |>
+    ggplot(aes(odate, value)) +
+    geom_point(alpha = 0.3, colour = viz$secondary) +
+    geom_smooth(method = "loess", formula = y ~ x, se = TRUE,
+                colour = viz$accent, fill = viz$accent_soft) +
+    facet_wrap(~ tracker, scales = "free_y", ncol = 1) +
+    labs(x = NULL, y = NULL,
+         title = "Core measurements over time",
+         subtitle = "Each dot is a day; the line is a smoothed trend") +
+    viz$theme(base_size = 13)
+}
+```
+
+:::
+
+::: {.analysis-section}
+
+### Stability calendar
+
+```{webr}
+#| label: fact-calendar
+#| echo: false
+#| autorun: true
+#| input: ["fileText"]
+#| warning: false
+
+if (exists("visible")) {
+  stab <- visible[visible$tracker == "Stability Score" &
+                    !is.na(visible$value), ]
+  if (nrow(stab) >= 7) {
+    d_range <- range(visible$odate, na.rm = TRUE)
+    span <- as.integer(d_range[2] - d_range[1]) + 1L
+    logged <- length(unique(stab$odate))
+    pct <- round(100 * logged / span)
+    mean_stab <- mean(stab$value, na.rm = TRUE)
+
+    htmltools::HTML(sprintf(
+      paste0(
+        '<p class="section-fact">',
+        'Stability logged on <strong>%s of %s days</strong> ',
+        '(<strong>%s%%</strong> complete). ',
+        'Your overall mean is <strong>%.1f / 5</strong>.',
+        '</p>'
+      ),
+      format(logged, big.mark = ","),
+      format(span, big.mark = ","),
+      pct, mean_stab
+    ))
+  }
+}
+```
+
+Each tile is a day. Colour shows the morning Stability Score (1–5). Reads like a wall calendar: weeks march left-to-right, weekdays stack top-to-bottom. Muted tiles are days you didn't log. Look for streaks (long runs of similar colour) and breaks (a sudden colour change) — those are the moments worth pairing with whatever was happening in your life that week.
+
+```{webr}
+#| label: chart-calendar
+#| echo: false
+#| autorun: true
+#| input: ["fileText", "darkMode"]
+#| warning: false
+#| fig-width: 12
+#| fig-height: 3.4
+
+if (exists("visible")) {
+  library(ggplot2)
+  viz <- viz_theme(darkMode)
+
+  date_range <- range(visible$odate, na.rm = TRUE)
+  all_days <- data.frame(
+    odate = seq.Date(date_range[1], date_range[2], by = "day")
+  )
+  all_days$week_start <- lubridate::floor_date(all_days$odate, "week",
+                                                week_start = 1)
+  all_days$wday <- lubridate::wday(all_days$odate, label = TRUE,
+                                    abbr = TRUE, week_start = 1)
+
+  stab <- visible |>
+    dplyr::filter(tracker == "Stability Score") |>
+    dplyr::group_by(odate) |>
+    dplyr::summarise(value = mean(value, na.rm = TRUE),
+                     .groups = "drop")
+
+  grid <- merge(all_days, stab, by = "odate", all.x = TRUE)
+
+  ggplot(grid, aes(week_start, wday, fill = value)) +
+    geom_tile(colour = viz$paper_card, linewidth = 0.5) +
+    scale_x_date(
+      date_breaks = "1 month",
+      date_labels = "%b %Y",
+      expand = c(0.005, 0.005)
+    ) +
+    scale_y_discrete(limits = rev, expand = c(0, 0)) +
+    scale_fill_gradient(low = viz$cal_low, high = viz$cal_high,
+                        limits = c(1, 5), na.value = viz$cal_na,
+                        name = "Stability") +
+    coord_cartesian(clip = "off") +
+    labs(x = NULL, y = NULL,
+         title = "Stability Score across your timeline",
+         subtitle = "Brighter = more stable · muted tile = no entry that day") +
+    viz$theme(base_size = 11) +
+    theme(
+      panel.grid = element_blank(),
+      axis.text.x = element_text(hjust = 0),
+      axis.ticks = element_blank(),
+      legend.position = "right",
+      legend.key.height = grid::unit(1.2, "cm")
+    )
+}
+```
+
+:::
+
+::: {.chapter-num}
+Chapter III
+:::
+
+## What hangs together {.chapter-title}
+
+::: {.chapter-lede}
+Symptoms rarely move alone. Some travel as a chorus, others move opposite — and a few have nothing to say to each other at all. The next two charts ask: which of your trackers tend to move in step?
+:::
+
+::: {.analysis-section}
+
+### Correlation matrix
+
+This is a grid where every tracker meets every other tracker. The colour of each square answers the question: *when this one goes up, does that one tend to go up too, or down?* **Warm tiles = move together** (both rise on the same days). **Cool tiles = move opposite** (one rises while the other falls). **Pale tiles = no clear relationship.**
+
+The trackers are reordered so that things that behave alike sit near each other — this makes blocks of warm or cool colour easier to spot. None of this proves cause-and-effect; it just tells you which of your measurements are telling overlapping stories.
+
+```{webr}
+#| label: fact-correlation
+#| echo: false
+#| autorun: true
+#| input: ["fileText"]
+#| warning: false
+
+if (exists("visible_mat_clean") && ncol(visible_mat_clean) >= 3) {
+  cm <- suppressWarnings(
+    cor(visible_mat_clean, use = "pairwise.complete.obs")
+  )
+  cm[is.na(cm)] <- 0
+  diag(cm) <- NA
+
+  idx_pos <- which.max(cm)
+  rc_pos <- arrayInd(idx_pos, dim(cm))
+  pos_a <- rownames(cm)[rc_pos[1]]
+  pos_b <- colnames(cm)[rc_pos[2]]
+  pos_r <- cm[idx_pos]
+
+  idx_neg <- which.min(cm)
+  rc_neg <- arrayInd(idx_neg, dim(cm))
+  neg_a <- rownames(cm)[rc_neg[1]]
+  neg_b <- colnames(cm)[rc_neg[2]]
+  neg_r <- cm[idx_neg]
+
+  short <- function(x) sub("^.* — ", "", x)
+
+  htmltools::HTML(sprintf(
+    paste0(
+      '<p class="section-fact">',
+      'Trackers that most often rise and fall together: <strong>%s &harr; %s</strong> (strength %+0.2f, where +1 means perfectly in step). ',
+      'Trackers that most often move in opposite directions: <strong>%s &harr; %s</strong> (%+0.2f, where -1 means perfectly opposed).',
+      '</p>'
+    ),
+    short(pos_a), short(pos_b), pos_r,
+    short(neg_a), short(neg_b), neg_r
+  ))
+}
+```
+
+```{webr}
+#| label: chart-correlation
+#| echo: false
+#| autorun: true
+#| input: ["fileText", "darkMode"]
+#| warning: false
+#| fig-width: 11
+#| fig-height: 11
+
+if (exists("visible_mat_clean") && ncol(visible_mat_clean) >= 3) {
+  library(ggplot2)
+  viz <- viz_theme(darkMode)
+
+  cm <- suppressWarnings(
+    cor(visible_mat_clean, use = "pairwise.complete.obs")
+  )
+  cm[is.na(cm)] <- 0
+
+  d <- stats::as.dist(1 - abs(cm))
+  ord <- stats::hclust(d, method = "average")$order
+  cm_ord <- cm[ord, ord]
+
+  cm_df <- data.frame(
+    var1 = factor(rownames(cm_ord)[row(cm_ord)],
+                  levels = rownames(cm_ord)),
+    var2 = factor(colnames(cm_ord)[col(cm_ord)],
+                  levels = rownames(cm_ord)),
+    r = as.vector(cm_ord)
+  )
+
+  ggplot(cm_df, aes(var1, var2, fill = r)) +
+    geom_tile() +
+    scale_fill_gradient2(low = viz$secondary, mid = viz$paper_card,
+                         high = viz$accent, midpoint = 0,
+                         limits = c(-1, 1), name = "Move\ntogether →") +
+    coord_equal() +
+    labs(x = NULL, y = NULL,
+         title = "Which trackers move together?",
+         subtitle = "Warm = rise and fall in step · cool = move opposite · trackers grouped by similarity") +
+    viz$theme(base_size = 11) +
+    theme(
+      axis.text.x = element_text(angle = 45, hjust = 1, vjust = 1,
+                                  size = 9),
+      axis.text.y = element_text(size = 9),
+      panel.grid = element_blank(),
+      plot.margin = margin(10, 10, 10, 10)
+    )
+}
+```
+
+:::
+
+::: {.analysis-section}
+
+### Symptom clusters
+
+The same idea, drawn as a tree. Trackers that join up early (towards the right edge of the chart) move very similarly — they tell overlapping stories. Trackers that join far to the left are barely related. If two trackers you'd expect to behave similarly fall into different branches, that's a small surprise worth a second look.
+
+```{webr}
+#| label: chart-clusters
+#| echo: false
+#| autorun: true
+#| input: ["fileText", "darkMode"]
+#| warning: false
+#| fig-width: 9
+#| fig-height: 9
+
+if (exists("visible_mat_clean") && ncol(visible_mat_clean) >= 3) {
+  library(ggplot2)
+  viz <- viz_theme(darkMode)
+
+  cm <- suppressWarnings(
+    cor(visible_mat_clean, use = "pairwise.complete.obs")
+  )
+  cm[is.na(cm)] <- 0
+  d <- stats::as.dist(1 - abs(cm))
+
+  hc <- stats::hclust(d, method = "ward.D2")
+
+  ggdendro::ggdendrogram(hc, rotate = TRUE, theme_dendro = FALSE,
+                         size = 3.2) +
+    labs(title = "Trackers that travel together",
+         subtitle = "Branches joining further right = trackers that move more alike",
+         x = NULL, y = NULL) +
+    viz$theme(base_size = 11) +
+    theme(panel.grid = element_blank(),
+          axis.text.x = element_blank(),
+          axis.ticks = element_blank(),
+          plot.margin = margin(15, 15, 15, 15),
+          plot.title = element_text(family = "serif",
+                                    face = "italic", size = 14),
+          plot.subtitle = element_text(colour = viz$muted, size = 9))
+}
+```
+
+:::
+
+::: {.chapter-num}
+Chapter IV
+:::
+
+## Where things shift {.chapter-title}
+
+::: {.chapter-lede}
+Two ways to ask "when did something change?" — first, the moments where one tracker's typical level seems to step up or down; then, a single number per day for how unusual the whole day was.
+:::
+
+::: {.analysis-section}
+
+### Change points
+
+A statistical method scans your HRV and Stability Score timelines and looks for moments where the typical value clearly shifted up or down — not just for a day or two, but settled into a new baseline. The dashed lines mark those moments. Pair them with your memory: did anything change in your life around those dates? A new medication, an infection, a season change, a stressful stretch? Up to five shifts per tracker are shown. If there are no lines, your baseline has stayed roughly steady — also useful to know.
+
+```{webr}
+#| label: chart-change-points
+#| echo: false
+#| autorun: true
+#| input: ["fileText", "darkMode"]
+#| warning: false
+
+if (exists("visible") && requireNamespace("changepoint", quietly = TRUE)) {
+  library(ggplot2)
+  viz <- viz_theme(darkMode)
+
+  series <- visible |>
+    dplyr::filter(tracker %in% c("HR Variability", "Stability Score")) |>
+    dplyr::group_by(tracker, odate) |>
+    dplyr::summarise(value = mean(value, na.rm = TRUE),
+                     .groups = "drop") |>
+    dplyr::arrange(tracker, odate)
+
+  cp_df <- do.call(rbind, lapply(split(series, series$tracker),
+    function(df) {
+      ok <- !is.na(df$value)
+      if (sum(ok) < 20) return(NULL)
+      cp <- suppressWarnings(
+        changepoint::cpt.mean(df$value[ok],
+                              method = "BinSeg", Q = 5,
+                              penalty = "MBIC")
+      )
+      idx <- changepoint::cpts(cp)
+      if (length(idx) == 0) return(NULL)
+      data.frame(tracker = df$tracker[1],
+                 odate = df$odate[ok][idx])
+    }))
+
+  p <- ggplot(series, aes(odate, value)) +
+    geom_line(colour = viz$muted, alpha = 0.6, linewidth = 0.4) +
+    geom_smooth(method = "loess", formula = y ~ x, se = FALSE,
+                colour = viz$accent, linewidth = 0.9) +
+    facet_wrap(~ tracker, scales = "free_y", ncol = 1) +
+    labs(x = NULL, y = NULL,
+         title = "Moments your baseline shifted",
+         subtitle = "Dashed lines mark dates where the typical level moved up or down") +
+    viz$theme(base_size = 12)
+
+  if (!is.null(cp_df) && nrow(cp_df) > 0) {
+    p <- p + geom_vline(data = cp_df,
+                        aes(xintercept = odate),
+                        colour = viz$secondary,
+                        linetype = "dashed",
+                        linewidth = 0.5)
+  }
+  p
+} else if (exists("visible")) {
+  cat("changepoint package not available in this WebR build — skipping.\n")
+}
+```
+
+:::
+
+::: {.analysis-section}
+
+### Daily symptom burden
+
+This boils every day down to a single number: across all your symptom trackers, how unusual was today compared to your own typical day? **Zero is your usual day.** Positive values mean a worse-than-usual day across multiple trackers at once; negative values mean an easier-than-usual one. The thin line is each individual day (jumpy by nature); the thick curve smooths over the noise to show the underlying drift. A long stretch above zero is a flare; a slow tilt downward over months is recovery; bouncing tightly around zero is stability.
+
+```{webr}
+#| label: fact-burden
+#| echo: false
+#| autorun: true
+#| input: ["fileText"]
+#| warning: false
+
+if (exists("visible_mat_clean") && ncol(visible_mat_clean) >= 5) {
+  mat <- visible_mat_clean
+  mu <- colMeans(mat, na.rm = TRUE)
+  sigma <- apply(mat, 2, stats::sd, na.rm = TRUE)
+  sigma[sigma == 0] <- 1
+  z <- sweep(sweep(mat, 2, mu, "-"), 2, sigma, "/")
+  burden_per_day <- rowMeans(z, na.rm = TRUE)
+  dates <- as.Date(rownames(mat))
+
+  worst_idx <- which.max(burden_per_day)
+  best_idx <- which.min(burden_per_day)
+
+  htmltools::HTML(sprintf(
+    paste0(
+      '<p class="section-fact">',
+      'Your hardest day on this combined measure: <strong>%s</strong> (%+.1f, well above your usual). ',
+      'Your easiest: <strong>%s</strong> (%+.1f, well below). ',
+      'Calculated across <strong>%d</strong> symptom trackers — the more trackers you log, the more reliable this single number becomes.',
+      '</p>'
+    ),
+    format(dates[worst_idx], "%b %d %Y"),
+    burden_per_day[worst_idx],
+    format(dates[best_idx], "%b %d %Y"),
+    burden_per_day[best_idx],
+    ncol(mat)
+  ))
+}
+```
+
+```{webr}
+#| label: chart-burden
+#| echo: false
+#| autorun: true
+#| input: ["fileText", "darkMode"]
+
+if (exists("visible_mat_clean") && ncol(visible_mat_clean) >= 5) {
+  library(ggplot2)
+  viz <- viz_theme(darkMode)
+
+  mat <- visible_mat_clean
+  mu <- colMeans(mat, na.rm = TRUE)
+  sigma <- apply(mat, 2, stats::sd, na.rm = TRUE)
+  sigma[sigma == 0] <- 1
+  z <- sweep(sweep(mat, 2, mu, "-"), 2, sigma, "/")
+
+  burden <- data.frame(
+    odate = as.Date(rownames(mat)),
+    burden = rowMeans(z, na.rm = TRUE),
+    n_logged = rowSums(!is.na(mat))
+  )
+  burden <- burden[burden$n_logged >= 5, ]
+
+  ggplot(burden, aes(odate, burden)) +
+    geom_hline(yintercept = 0, colour = viz$rule, linewidth = 0.4) +
+    geom_line(colour = viz$ink, alpha = 0.45, linewidth = 0.4) +
+    geom_smooth(method = "loess", formula = y ~ x, se = TRUE,
+                colour = viz$accent, fill = viz$accent_soft,
+                linewidth = 1) +
+    labs(x = NULL,
+         y = "How unusual was today?",
+         title = "Daily symptom burden over time",
+         subtitle = "Above zero = worse-than-usual day · below = better · the curve shows the underlying trend") +
+    viz$theme(base_size = 13)
+}
+```
+
+:::
+
+::: {.chapter-num}
+Chapter V
+:::
+
+## Cycles & capacity {.chapter-title}
+
+::: {.chapter-lede}
+Two body-rhythm views. First, how your symptoms move across the menstrual cycle — for many people with long COVID or ME/CFS, that cycle interacts strongly with the rest of how the body feels. Then, how your everyday functional capacity has shifted across eight domains of daily living.
+:::
+
+::: {.analysis-section}
+
+### Menstrual cycle
+
+If your export has a `Period` tracker with at least a couple of full cycles, every cycle gets lined up so day 1 is the first day of bleeding, then your Stability and HRV are averaged at each cycle day across all the cycles. **Look for repeated dips or peaks at the same point in the cycle** — those are patterns that recur every month and may be worth planning around. The shaded ribbon shows how much variability there is around each day's average; thin ribbons mean the pattern is consistent across cycles, wide ribbons mean cycles vary a lot.
+
+The four phase bands — *Menstrual*, *Follicular*, *Ovulatory*, *Luteal* — are labelled along the top of each panel using textbook day-ranges, and the dotted vertical line marks the typical day of ovulation (around day 14). Your own cycle won't match a textbook exactly, but it's a useful frame for reading the pattern. Cycles shorter than 18 days or longer than 45 are dropped (likely incomplete or merged).
+
+```{webr}
+#| label: fact-cycle
+#| echo: false
+#| autorun: true
+#| input: ["fileText"]
+#| warning: false
+
+if (exists("visible")) {
+  period <- visible |>
+    dplyr::filter(tracker == "Period") |>
+    dplyr::mutate(value = ifelse(is.na(value), 0, value)) |>
+    dplyr::arrange(odate)
+
+  if (nrow(period) > 0 && sum(period$value > 0, na.rm = TRUE) >= 5) {
+    bleed_dates <- sort(unique(period$odate[period$value > 0]))
+    starts <- bleed_dates[c(TRUE, diff(bleed_dates) > 2)]
+    cycles_for_fact <- data.frame(
+      start = starts,
+      end = c(starts[-1] - 1, max(visible$odate, na.rm = TRUE))
+    )
+    cycles_for_fact$length <- as.numeric(cycles_for_fact$end -
+                                          cycles_for_fact$start) + 1
+    cycles_for_fact <- cycles_for_fact[cycles_for_fact$length >= 18 &
+                                        cycles_for_fact$length <= 45, ]
+
+    if (nrow(cycles_for_fact) >= 2) {
+      core <- visible |>
+        dplyr::filter(tracker %in% c("Stability Score", "HR Variability")) |>
+        dplyr::group_by(tracker, odate) |>
+        dplyr::summarise(value = mean(value, na.rm = TRUE),
+                         .groups = "drop")
+
+      assign_cycle_day <- function(d) {
+        idx <- max(which(cycles_for_fact$start <= d &
+                          cycles_for_fact$end >= d), 0L)
+        if (idx == 0) return(NA_integer_)
+        as.integer(d - cycles_for_fact$start[idx]) + 1L
+      }
+      core$cycle_day <- vapply(core$odate, assign_cycle_day, integer(1))
+      core <- core[!is.na(core$cycle_day) & core$cycle_day <= 35, ]
+
+      stab_means <- core |>
+        dplyr::filter(tracker == "Stability Score") |>
+        dplyr::group_by(cycle_day) |>
+        dplyr::summarise(n = dplyr::n(),
+                         mean = mean(value, na.rm = TRUE),
+                         .groups = "drop") |>
+        dplyr::filter(n >= 2)
+
+      worst <- stab_means[which.min(stab_means$mean), ]
+      best <- stab_means[which.max(stab_means$mean), ]
+      gap <- best$mean - worst$mean
+
+      phase_name <- function(d) {
+        if (d <= 5) "menstrual"
+        else if (d <= 13) "follicular"
+        else if (d <= 16) "ovulatory"
+        else "luteal"
+      }
+
+      htmltools::HTML(sprintf(
+        paste0(
+          '<p class="section-fact">',
+          'Across <strong>%d</strong> cycle(s), Stability dips lowest ',
+          'on <strong>day %d</strong> (%.1f / 5, %s phase) ',
+          'and peaks on <strong>day %d</strong> (%.1f / 5, %s phase). ',
+          'Difference: <strong>%.1f points</strong>.',
+          '</p>'
+        ),
+        nrow(cycles_for_fact),
+        worst$cycle_day, worst$mean, phase_name(worst$cycle_day),
+        best$cycle_day, best$mean, phase_name(best$cycle_day),
+        gap
+      ))
+    }
+  }
+}
+```
+
+```{webr}
+#| label: chart-cycle
+#| echo: false
+#| autorun: true
+#| input: ["fileText", "darkMode"]
+#| warning: false
+#| fig-width: 9
+#| fig-height: 6.5
+
+if (exists("visible")) {
+  library(ggplot2)
+  viz <- viz_theme(darkMode)
+
+  period <- visible |>
+    dplyr::filter(tracker == "Period") |>
+    dplyr::mutate(value = ifelse(is.na(value), 0, value)) |>
+    dplyr::arrange(odate)
+
+  if (nrow(period) == 0 || sum(period$value > 0, na.rm = TRUE) < 5) {
+    cat("No usable Period data found — skipping cycle analysis.\n")
+  } else {
+    bleed_dates <- sort(unique(period$odate[period$value > 0]))
+
+    starts <- bleed_dates[c(TRUE, diff(bleed_dates) > 2)]
+
+    cycles <- data.frame(
+      cycle_id = seq_along(starts),
+      start = starts,
+      end = c(starts[-1] - 1, max(visible$odate, na.rm = TRUE))
+    )
+    cycles$length <- as.numeric(cycles$end - cycles$start) + 1
+    cycles <- cycles[cycles$length >= 18 & cycles$length <= 45, ]
+
+    if (nrow(cycles) < 2) {
+      cat("Fewer than 2 complete cycles detected — need more data.\n")
+    } else {
+      core <- visible |>
+        dplyr::filter(tracker %in% c("Stability Score", "HR Variability")) |>
+        dplyr::group_by(tracker, odate) |>
+        dplyr::summarise(value = mean(value, na.rm = TRUE),
+                         .groups = "drop")
+
+      assign_cycle <- function(d) {
+        idx <- max(which(cycles$start <= d & cycles$end >= d), 0L)
+        if (idx == 0) return(c(NA_integer_, NA_integer_))
+        c(cycles$cycle_id[idx],
+          as.integer(d - cycles$start[idx]) + 1L)
+      }
+
+      assigned <- t(vapply(core$odate, assign_cycle,
+                            integer(2)))
+      core$cycle_id <- assigned[, 1]
+      core$cycle_day <- assigned[, 2]
+      core <- core[!is.na(core$cycle_day) & core$cycle_day <= 35, ]
+
+      summary_df <- core |>
+        dplyr::group_by(tracker, cycle_day) |>
+        dplyr::summarise(
+          n = dplyr::n(),
+          mean = mean(value, na.rm = TRUE),
+          se = stats::sd(value, na.rm = TRUE) / sqrt(pmax(n, 1)),
+          .groups = "drop"
+        ) |>
+        dplyr::filter(n >= 2)
+
+      n_cycles <- nrow(cycles)
+
+      phases <- data.frame(
+        phase = factor(c("Menstrual", "Follicular",
+                         "Ovulatory", "Luteal"),
+                       levels = c("Menstrual", "Follicular",
+                                  "Ovulatory", "Luteal")),
+        xmin = c(0.5, 5.5, 13.5, 16.5),
+        xmax = c(5.5, 13.5, 16.5, 35.5)
+      )
+
+      phase_labels <- data.frame(
+        phase = c("Menstrual", "Follicular", "Ovulatory", "Luteal"),
+        x = c(3, 9.5, 15, 26)
+      )
+
+      ovulation_day <- 14
+
+      worsts <- do.call(rbind, lapply(
+        split(summary_df, summary_df$tracker),
+        function(df) df[which.min(df$mean), ]
+      ))
+      worsts$kind <- "worst"
+
+      bests <- do.call(rbind, lapply(
+        split(summary_df, summary_df$tracker),
+        function(df) df[which.max(df$mean), ]
+      ))
+      bests$kind <- "best"
+
+      extremes <- rbind(worsts, bests)
+
+      ggplot(summary_df, aes(cycle_day, mean)) +
+        geom_rect(data = phases,
+                  aes(xmin = xmin, xmax = xmax,
+                      ymin = -Inf, ymax = Inf,
+                      fill = phase),
+                  inherit.aes = FALSE, alpha = 0.22) +
+        scale_fill_manual(
+          values = c(Menstrual = viz$accent,
+                     Follicular = viz$secondary,
+                     Ovulatory = viz$highlight,
+                     Luteal = viz$muted),
+          guide = "none"
+        ) +
+        geom_vline(xintercept = ovulation_day,
+                   colour = viz$ink_soft, linetype = "dotted",
+                   linewidth = 0.6) +
+        geom_vline(data = worsts,
+                   aes(xintercept = cycle_day),
+                   colour = viz$accent, linetype = "dashed",
+                   linewidth = 0.4, inherit.aes = FALSE) +
+        geom_vline(data = bests,
+                   aes(xintercept = cycle_day),
+                   colour = viz$secondary, linetype = "dashed",
+                   linewidth = 0.4, inherit.aes = FALSE) +
+        geom_ribbon(aes(ymin = mean - se, ymax = mean + se),
+                    fill = viz$accent_soft) +
+        geom_line(colour = viz$accent, linewidth = 1) +
+        geom_point(colour = viz$ink, size = 1.2) +
+        geom_point(data = worsts,
+                   aes(cycle_day, mean),
+                   inherit.aes = FALSE,
+                   colour = viz$accent, fill = viz$accent_soft,
+                   shape = 21, size = 3.5, stroke = 1.2) +
+        geom_point(data = bests,
+                   aes(cycle_day, mean),
+                   inherit.aes = FALSE,
+                   colour = viz$secondary, fill = "white",
+                   shape = 21, size = 3.5, stroke = 1.2) +
+        geom_text(data = worsts,
+                  aes(cycle_day, mean,
+                      label = sprintf("worst (d%d)", cycle_day)),
+                  inherit.aes = FALSE,
+                  colour = viz$accent, hjust = -0.15,
+                  vjust = 1.4, size = 3, family = "sans") +
+        geom_text(data = bests,
+                  aes(cycle_day, mean,
+                      label = sprintf("best (d%d)", cycle_day)),
+                  inherit.aes = FALSE,
+                  colour = viz$secondary, hjust = -0.15,
+                  vjust = -0.6, size = 3, family = "sans") +
+        geom_text(data = phase_labels,
+                  aes(x = x, y = Inf, label = phase),
+                  inherit.aes = FALSE,
+                  vjust = 1.4, hjust = 0.5,
+                  family = "serif", fontface = "italic",
+                  size = 3.4, colour = viz$ink_soft) +
+        annotate("text",
+                 x = ovulation_day, y = Inf,
+                 label = "↓ ovulation",
+                 vjust = 3.2, hjust = 0.5,
+                 family = "sans", fontface = "italic",
+                 size = 3, colour = viz$ink_soft) +
+        facet_wrap(~ tracker, scales = "free_y", ncol = 1) +
+        scale_x_continuous(breaks = c(1, 7, 14, 21, 28),
+                           minor_breaks = NULL,
+                           expand = c(0.005, 0.005)) +
+        coord_cartesian(clip = "off") +
+        labs(x = "Day of cycle (1 = first day of bleed)",
+             y = NULL,
+             title = "Symptoms across the menstrual cycle",
+             subtitle = sprintf(
+               "Mean ± SE across %d cycle(s) · phase bands shaded · ovulation marked at day 14",
+               n_cycles)) +
+        viz$theme(base_size = 12) +
+        theme(legend.position = "none",
+              plot.margin = margin(28, 15, 15, 15))
+    }
+  }
+}
+```
+
+:::
+
+::: {.analysis-section}
+
+### Functional capacity
+
+The FUNCAP-27 questionnaire asks how limited you've been in eight everyday domains — things like standing, concentrating, socialising, self-care. **Higher on the y-axis means more limited.** Each panel is one domain. The dots are individual days; the curve shows the underlying trend. Panels are ordered by how limited you've been *recently* — so the worst-affected domains are at the top-left. A curve that's been climbing means that area of life has gotten harder; one that's been falling means it's eased.
+
+```{webr}
+#| label: chart-funcap
+#| echo: false
+#| autorun: true
+#| input: ["fileText", "darkMode"]
+#| warning: false
+#| fig-width: 11
+#| fig-height: 8
+
+if (exists("visible")) {
+  library(ggplot2)
+  viz <- viz_theme(darkMode)
+
+  funcap <- visible |>
+    dplyr::filter(grepl("^Funcap_", category)) |>
+    dplyr::mutate(domain = sub("^Funcap_", "", category))
+
+  if (nrow(funcap) == 0) {
+    cat("No FUNCAP entries found in your export.\n")
+  } else {
+    daily <- funcap |>
+      dplyr::group_by(domain, odate) |>
+      dplyr::summarise(value = mean(value, na.rm = TRUE),
+                       .groups = "drop")
+
+    domain_order <- daily |>
+      dplyr::group_by(domain) |>
+      dplyr::summarise(latest = mean(value[odate >= max(odate) - 30],
+                                      na.rm = TRUE),
+                       .groups = "drop") |>
+      dplyr::arrange(dplyr::desc(latest))
+
+    daily$domain <- factor(daily$domain,
+                            levels = domain_order$domain)
+
+    ggplot(daily, aes(odate, value)) +
+      geom_point(alpha = 0.3, colour = viz$secondary, size = 0.9) +
+      geom_smooth(method = "loess", formula = y ~ x, se = TRUE,
+                  colour = viz$accent, fill = viz$accent_soft,
+                  linewidth = 0.8) +
+      facet_wrap(~ domain, scales = "free_y", ncol = 3) +
+      labs(x = NULL, y = "Daily mean limit",
+           title = "Functional capacity by domain",
+           subtitle = "Higher = more limited · panels ordered by recent mean") +
+      viz$theme(base_size = 11) +
+      theme(strip.text = element_text(face = "bold", colour = viz$ink_soft))
+  }
+}
+```
+
+:::
+
+::: {.chapter-num}
+Chapter VI
+:::
+
+## Look closer {.chapter-title}
+
+::: {.chapter-lede}
+Pick a tracker to dig into. Compare two side by side. Revisit your written notes alongside that day's measurements. Find the days where everything was off at once. Same data, four different lenses — use these when something earlier in the page sparked a question.
+:::
+
+::: {.analysis-section}
+
+### A single tracker, in detail
+
+Pick any tracker from the list and see three views of it at once: how it has moved over time, the shape of its distribution (where most of your values land), and whether it tends to be different on certain days of the week. The day-of-week panel can be a quiet revelation — many people find their measurements dip on Mondays after a busy weekend, or improve on Sundays.
+
+```{ojs}
+//| label: ojs-tracker-list
+//| echo: false
+trackerList = {
+  if (!fileText) return [];
+  const lines = fileText.split('\n');
+  const set = new Set();
+  for (let i = 1; i < lines.length; i++) {
+    const cols = lines[i].split(',');
+    if (cols.length >= 4) {
+      const name = cols[1]?.trim();
+      if (name && name !== 'Note') set.add(name);
+    }
+  }
+  return [...set].sort();
+}
+```
+
+```{ojs}
+//| label: ojs-outcome-list
+//| echo: false
+outcomeList = {
+  const outcomes = ["Stability Score", "HR Variability", "Resting HR", "Sleep"];
+  return outcomes.filter(t => trackerList.includes(t));
+}
+```
+
+```{ojs}
+//| label: ojs-tracker-select
+//| echo: false
+viewof selectedTracker = Inputs.select(outcomeList, {
+  label: "Tracker",
+  value: outcomeList.includes("Stability Score") ? "Stability Score" : outcomeList[0]
+})
+```
+
+```{webr}
+#| label: chart-tracker-detail
+#| echo: false
+#| autorun: true
+#| input: ["fileText", "selectedTracker", "darkMode"]
+#| warning: false
+#| fig-width: 11
+#| fig-height: 8
+
+if (exists("visible") && nchar(selectedTracker) > 0) {
+  library(ggplot2)
+  viz <- viz_theme(darkMode)
+
+  sub <- visible |>
+    dplyr::filter(tracker == selectedTracker, !is.na(value))
+
+  if (nrow(sub) < 5) {
+    cat(sprintf("Only %d observations for '%s' — not enough to plot.\n",
+                nrow(sub), selectedTracker))
+  } else {
+    is_binary <- length(unique(sub$value)) <= 2 &&
+                 all(sub$value %in% c(0, 1))
+
+    sub$wday <- lubridate::wday(sub$odate, label = TRUE, abbr = TRUE,
+                                 week_start = 1)
+
+    if (is_binary) {
+      p_trend <- sub |>
+        dplyr::mutate(week = lubridate::floor_date(odate, "week")) |>
+        dplyr::group_by(week) |>
+        dplyr::summarise(rate = mean(value > 0) * 100,
+                         .groups = "drop") |>
+        ggplot(aes(week, rate)) +
+        geom_col(fill = viz$secondary) +
+        geom_smooth(method = "loess", formula = y ~ x, se = FALSE,
+                    colour = viz$accent, linewidth = 0.9) +
+        labs(x = NULL, y = "% positive", title = "Weekly positive rate") +
+        viz$theme(base_size = 11)
+
+      counts <- sub |>
+        dplyr::count(value) |>
+        dplyr::mutate(value = factor(value,
+                                     labels = c("Absent", "Present")))
+      p_dist <- ggplot(counts, aes(value, n)) +
+        geom_col(fill = viz$secondary) +
+        geom_text(aes(label = n), vjust = -0.4,
+                  family = "sans", size = 3.5,
+                  colour = viz$ink) +
+        labs(x = NULL, y = "Days", title = "Counts") +
+        viz$theme(base_size = 11) +
+        theme(panel.grid.major.x = element_blank())
+
+      overall_rate <- mean(sub$value > 0) * 100
+      p_wday <- sub |>
+        dplyr::group_by(wday) |>
+        dplyr::summarise(rate = mean(value > 0) * 100,
+                         .groups = "drop") |>
+        ggplot(aes(wday, rate)) +
+        geom_col(fill = viz$accent) +
+        geom_hline(yintercept = overall_rate,
+                   linetype = "dashed", colour = viz$secondary,
+                   linewidth = 0.4) +
+        labs(x = NULL, y = "% positive", title = "By day of week") +
+        viz$theme(base_size = 11)
+    } else {
+      p_trend <- ggplot(sub, aes(odate, value)) +
+        geom_point(alpha = 0.5, colour = viz$secondary, size = 1.2) +
+        geom_smooth(method = "loess", formula = y ~ x, se = TRUE,
+                    colour = viz$accent, fill = viz$accent_soft) +
+        labs(x = NULL, y = NULL, title = "Trend over time") +
+        viz$theme(base_size = 11)
+
+      p_dist <- ggplot(sub, aes(value)) +
+        geom_histogram(bins = 15, fill = viz$secondary, colour = viz$paper_card) +
+        labs(x = NULL, y = "Days", title = "Distribution") +
+        viz$theme(base_size = 11)
+
+      p_wday <- ggplot(sub, aes(wday, value)) +
+        geom_boxplot(fill = viz$accent_soft, colour = viz$accent,
+                     outlier.size = 0.6) +
+        labs(x = NULL, y = NULL, title = "By day of week") +
+        viz$theme(base_size = 11)
+    }
+
+    summary_text <- if (is_binary) {
+      sprintf(
+        "%s · binary · %d days observed · positive on %d days (%.0f%%)",
+        selectedTracker,
+        nrow(sub),
+        sum(sub$value > 0),
+        mean(sub$value > 0) * 100
+      )
+    } else {
+      sprintf(
+        "%s · %d observations · range %s to %s · median %.2f · IQR %.2f-%.2f",
+        selectedTracker,
+        nrow(sub),
+        format(min(sub$odate), "%Y-%m-%d"),
+        format(max(sub$odate), "%Y-%m-%d"),
+        stats::median(sub$value),
+        stats::quantile(sub$value, 0.25),
+        stats::quantile(sub$value, 0.75)
+      )
+    }
+
+    if (requireNamespace("patchwork", quietly = TRUE)) {
+      print(patchwork::wrap_plots(p_trend, p_dist, p_wday,
+                                   design = "AAA\nBCC") +
+            patchwork::plot_annotation(
+              title = selectedTracker,
+              subtitle = summary_text,
+              theme = ggplot2::theme(
+                plot.background = ggplot2::element_rect(
+                  fill = viz$paper_card, colour = NA),
+                plot.title = ggplot2::element_text(
+                  family = "serif", face = "italic", size = 16,
+                  colour = viz$ink),
+                plot.subtitle = ggplot2::element_text(
+                  colour = viz$muted, size = 10))
+            ))
+    } else {
+      cat(summary_text, "\n")
+      print(p_trend)
+    }
+  }
+}
+```
+
+:::
+
+::: {.analysis-section}
+
+### Your notes, in context
+
+Days you wrote a note, with the morning HRV and Stability Score for that day. Most recent first. Hover or scroll for more.
+
+```{webr}
+#| label: notes-list
+#| echo: false
+#| autorun: true
+#| input: ["fileText"]
+#| warning: false
+
+if (exists("notes_df") && exists("visible") && nrow(notes_df) > 0) {
+  context <- visible |>
+    dplyr::filter(tracker %in% c("HR Variability", "Stability Score")) |>
+    dplyr::select(odate, tracker, value) |>
+    tidyr::pivot_wider(names_from = tracker, values_from = value)
+
+  notes_ctx <- notes_df |>
+    dplyr::left_join(context, by = "odate")
+
+  fmt_val <- function(x) {
+    if (is.na(x)) "—" else format(round(x, 1), trim = TRUE)
+  }
+
+  rows_html <- vapply(seq_len(nrow(notes_ctx)), function(i) {
+    r <- notes_ctx[i, ]
+    sprintf(
+      paste0(
+        '<div class="note-row">',
+        '<div class="note-date">%s</div>',
+        '<div class="note-meta">HRV %s · Stability %s</div>',
+        '<div class="note-text">%s</div>',
+        '</div>'
+      ),
+      format(r$odate, "%a %d %b %Y"),
+      fmt_val(r[["HR Variability"]]),
+      fmt_val(r[["Stability Score"]]),
+      gsub("<", "&lt;", gsub(">", "&gt;", r$note))
+    )
+  }, character(1))
+
+  htmltools::HTML(paste0(
+    sprintf('<p class="notes-summary">%d note(s) over the recorded period.</p>',
+            nrow(notes_ctx)),
+    '<div class="notes-list">',
+    paste(rows_html, collapse = "\n"),
+    '</div>'
+  ))
+} else if (exists("notes_df")) {
+  cat("No notes found in your export.\n")
+}
+```
+
+:::
+
+::: {.analysis-section}
+
+### Two trackers, side by side
+
+Lay any two trackers over the same timeline. Because they're often measured in completely different units (HRV in milliseconds vs Stability on a 1–5 scale, say), each is rescaled so that zero is its own typical value — that way the two lines are on the same visual footing and you can actually see them move together or apart.
+
+The smaller chart underneath asks a more subtle question: does one tracker tend to *lead* the other? If symptoms tend to flare a few days *after* a drop in HRV, the lag chart will show its strongest bar at a positive lag. If they tend to come together on the same day, the strongest bar will be right in the middle. This is suggestive, not proof — but it's a useful nudge towards what to investigate next.
+
+```{ojs}
+//| label: ojs-tracker-a
+//| echo: false
+viewof trackerA = Inputs.select(trackerList, {
+  label: "Tracker A",
+  value: trackerList.includes("HR Variability") ? "HR Variability" : trackerList[0]
+})
+```
+
+```{ojs}
+//| label: ojs-tracker-b
+//| echo: false
+viewof trackerB = Inputs.select(trackerList, {
+  label: "Tracker B",
+  value: trackerList.includes("Stability Score") ? "Stability Score" :
+         (trackerList.includes("Resting HR") ? "Resting HR" : trackerList[1] || trackerList[0])
+})
+```
+
+```{webr}
+#| label: chart-compare
+#| echo: false
+#| autorun: true
+#| input: ["fileText", "trackerA", "trackerB", "darkMode"]
+#| warning: false
+#| fig-width: 11
+#| fig-height: 7
+
+if (exists("visible") && nchar(trackerA) > 0 && nchar(trackerB) > 0 &&
+    trackerA != trackerB) {
+  library(ggplot2)
+  viz <- viz_theme(darkMode)
+
+  pair <- visible |>
+    dplyr::filter(tracker %in% c(trackerA, trackerB), !is.na(value)) |>
+    dplyr::group_by(tracker, odate) |>
+    dplyr::summarise(value = mean(value, na.rm = TRUE),
+                     .groups = "drop")
+
+  scaled <- pair |>
+    dplyr::group_by(tracker) |>
+    dplyr::mutate(
+      mu = mean(value, na.rm = TRUE),
+      sigma = stats::sd(value, na.rm = TRUE),
+      z = (value - mu) / ifelse(sigma == 0, 1, sigma)
+    ) |>
+    dplyr::ungroup()
+
+  wide <- pair |>
+    tidyr::pivot_wider(names_from = tracker, values_from = value)
+  paired <- wide[stats::complete.cases(wide[, c(trackerA, trackerB)]), ,
+                  drop = FALSE]
+
+  if (nrow(paired) < 10) {
+    cat("Fewer than 10 days with both trackers logged — too sparse to compare.\n")
+  } else {
+    r_pearson <- stats::cor(paired[[trackerA]], paired[[trackerB]],
+                            use = "complete.obs")
+
+    ccf_out <- stats::ccf(paired[[trackerA]], paired[[trackerB]],
+                           lag.max = 14, plot = FALSE)
+    ccf_df <- data.frame(lag = as.numeric(ccf_out$lag),
+                         r = as.numeric(ccf_out$acf))
+    best <- ccf_df[which.max(abs(ccf_df$r)), ]
+
+    p_overlay <- ggplot(scaled, aes(odate, z, colour = tracker)) +
+      geom_hline(yintercept = 0, colour = viz$rule, linewidth = 0.3) +
+      geom_line(alpha = 0.55, linewidth = 0.5) +
+      geom_smooth(method = "loess", formula = y ~ x, se = FALSE,
+                  linewidth = 1) +
+      scale_colour_manual(values = setNames(c(viz$accent, viz$secondary),
+                                              c(trackerA, trackerB)),
+                          name = NULL) +
+      labs(x = NULL, y = "Distance from each tracker's typical value",
+           title = sprintf("%s vs %s", trackerA, trackerB),
+           subtitle = sprintf(
+             "Move-together strength %+.2f (across %d shared days) · best line-up at %+d days (%+.2f)",
+             r_pearson, nrow(paired), best$lag, best$r)) +
+      viz$theme(base_size = 12) +
+      theme(legend.position = "top")
+
+    p_ccf <- ggplot(ccf_df, aes(lag, r)) +
+      geom_hline(yintercept = 0, colour = viz$rule, linewidth = 0.3) +
+      geom_segment(aes(xend = lag, yend = 0), colour = viz$muted,
+                   linewidth = 0.5) +
+      geom_point(aes(colour = abs(r) == max(abs(r))), size = 2) +
+      scale_colour_manual(values = c(`TRUE` = viz$accent,
+                                     `FALSE` = viz$ink_soft),
+                          guide = "none") +
+      labs(x = sprintf("Days of shift — negative = %s tends to lead", trackerB),
+           y = "How well they line up",
+           title = "Does one tracker lead the other?",
+           subtitle = "The tallest bar is where the patterns match best") +
+      viz$theme(base_size = 11)
+
+    if (requireNamespace("patchwork", quietly = TRUE)) {
+      print(patchwork::wrap_plots(p_overlay, p_ccf, ncol = 1,
+                                   heights = c(2, 1)))
+    } else {
+      print(p_overlay)
+    }
+  }
+} else if (exists("visible") && trackerA == trackerB) {
+  cat("Pick two different trackers to compare.\n")
+}
+```
+
+:::
+
+::: {.analysis-section}
+
+### Anomaly days
+
+For every tracker, every day, we ask: was today unusually far from your typical value for this tracker? Then we count, per day, how many of your trackers were unusual at the same time. **A day where lots of things were off at once is more likely to be a meaningful event** than a day where one number happened to be a bit high. The highlighted bars cross the threshold; the table below picks out your top few and shows which trackers were doing what.
+
+These are the days worth pairing with your written notes — and worth noticing if a pattern repeats (e.g. always the day after a big social outing).
+
+```{webr}
+#| label: chart-anomaly
+#| echo: false
+#| autorun: true
+#| input: ["fileText", "darkMode"]
+#| warning: false
+#| fig-width: 11
+#| fig-height: 4.2
+
+if (exists("visible_mat_clean") && ncol(visible_mat_clean) >= 5) {
+  library(ggplot2)
+  viz <- viz_theme(darkMode)
+
+  mu <- colMeans(visible_mat_clean, na.rm = TRUE)
+  sigma <- apply(visible_mat_clean, 2, stats::sd, na.rm = TRUE)
+  sigma[sigma == 0] <- 1
+  z <- sweep(sweep(visible_mat_clean, 2, mu, "-"), 2, sigma, "/")
+
+  spikes <- abs(z) > 2
+  spikes[is.na(spikes)] <- FALSE
+  spike_count <- rowSums(spikes)
+
+  daily <- data.frame(
+    odate = as.Date(rownames(visible_mat_clean)),
+    n_spikes = spike_count,
+    n_logged = rowSums(!is.na(visible_mat_clean))
+  )
+  daily <- daily[daily$n_logged >= 5, ]
+
+  threshold <- max(3, ceiling(0.10 * ncol(visible_mat_clean)))
+  daily$flag <- daily$n_spikes >= threshold
+
+  ggplot(daily, aes(odate, n_spikes, fill = flag)) +
+    geom_col(width = 0.9) +
+    geom_hline(yintercept = threshold, linetype = "dashed",
+               colour = viz$rule, linewidth = 0.4) +
+    annotate("text",
+             x = max(daily$odate),
+             y = threshold,
+             label = sprintf("threshold: %d", threshold),
+             hjust = 1, vjust = -0.5, size = 3,
+             colour = viz$muted) +
+    scale_fill_manual(values = c(`TRUE` = viz$accent,
+                                  `FALSE` = viz$ink_soft),
+                      guide = "none") +
+    scale_x_date(date_breaks = "1 month", date_labels = "%b %Y") +
+    labs(x = NULL, y = "Trackers behaving unusually",
+         title = "Days where many trackers were off at once",
+         subtitle = sprintf(
+           "Bars cross the dashed line on days where at least %d trackers were unusually high or low",
+           threshold)) +
+    viz$theme(base_size = 11)
+}
+```
+
+```{webr}
+#| label: anomaly-list
+#| echo: false
+#| autorun: true
+#| input: ["fileText"]
+#| warning: false
+
+if (exists("visible_mat_clean") && ncol(visible_mat_clean) >= 5) {
+  mu <- colMeans(visible_mat_clean, na.rm = TRUE)
+  sigma <- apply(visible_mat_clean, 2, stats::sd, na.rm = TRUE)
+  sigma[sigma == 0] <- 1
+  z <- sweep(sweep(visible_mat_clean, 2, mu, "-"), 2, sigma, "/")
+
+  threshold <- max(3, ceiling(0.10 * ncol(visible_mat_clean)))
+  spikes <- abs(z) > 2
+  spikes[is.na(spikes)] <- FALSE
+  spike_count <- rowSums(spikes)
+  flagged <- which(spike_count >= threshold)
+
+  if (length(flagged) == 0) {
+    htmltools::HTML(
+      "<p class='notes-summary'>No anomaly days detected at this threshold.</p>"
+    )
+  } else {
+    flagged <- flagged[order(spike_count[flagged], decreasing = TRUE)]
+    flagged <- flagged[seq_len(min(8, length(flagged)))]
+
+    rows <- vapply(flagged, function(i) {
+      day_z <- z[i, ]
+      top_idx <- order(abs(day_z), decreasing = TRUE,
+                        na.last = NA)[1:min(5, sum(!is.na(day_z)))]
+      bullets <- vapply(top_idx, function(j) {
+        sprintf('<span class="anom-pill %s">%s %+.1fσ</span>',
+                ifelse(day_z[j] > 0, "anom-up", "anom-down"),
+                names(day_z)[j],
+                day_z[j])
+      }, character(1))
+      sprintf(
+        paste0(
+          '<div class="note-row anom-row">',
+          '<div class="note-date">%s</div>',
+          '<div class="note-meta">%d trackers spiking</div>',
+          '<div class="note-text">%s</div>',
+          '</div>'
+        ),
+        format(as.Date(rownames(visible_mat_clean))[i], "%a %d %b %Y"),
+        spike_count[i],
+        paste(bullets, collapse = " ")
+      )
+    }, character(1))
+
+    htmltools::HTML(paste0(
+      sprintf('<p class="notes-summary">Top %d anomaly day(s)</p>',
+              length(flagged)),
+      '<div class="notes-list">',
+      paste(rows, collapse = "\n"),
+      '</div>'
+    ))
+  }
+}
+```
+
+:::
+
+## A few honest reminders
+
+Before you act on anything you've seen here, a few things worth holding in mind.
+
+- **Patterns are not causes.** If two trackers move together, it doesn't mean one is causing the other. They might both be downstream of something else — sleep, hormones, infection, weather, the stress of the week. Treat what you find as questions, not answers.
+- **Sparse data is wobbly.** Trackers you've only logged a handful of times will produce shaky-looking curves. The longer you log, the more solid every chart on this page becomes.
+- **Your body is the expert.** These charts can surface a pattern you hadn't noticed, but they can't tell you how you feel. Cross-check anything striking against your own memory of that period.
+- **Bring it to someone who can help.** If a chart raises a real concern — a clear downward trend, a change-point that lines up with new symptoms — that's a useful conversation to have with a clinician who knows you.
+
+## What's next
+
+A few things I'd like to add, when there's time:
+
+- **Download your figures** — save individual plots as PDF for sharing with a clinician.
+- **More long-COVID-specific lenses** — PEM-window detection, post-exertional patterns, rolling pacing scores.
+- **Suggestions welcome** — if there's a chart you wish you could see, the GitHub link in the navbar is the place to ask.

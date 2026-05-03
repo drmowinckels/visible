@@ -1,0 +1,13 @@
+_site/
+.quarto/
+*.html
+.DS_Store
+.Rproj.user/
+.Rhistory
+sample-visible.csv
+visible.csv
+
+/.quarto/
+**/*.quarto_ipynb
+
+/.luarc.json

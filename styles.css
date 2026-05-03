@@ -1,0 +1,1026 @@
+/* =============================================================
+   Visible Explorer — editorial / quiet journal aesthetic
+   Fonts: Fraunces (display, soft optical), Hanken Grotesk (body),
+          JetBrains Mono (data / tabular). Loaded via <link> in head
+          to avoid render-blocking @import waterfalls.
+   Palette: parchment + deep ink, single rust accent, forest second.
+   ============================================================= */
+
+:root {
+  /* Palette — soft pastel "spa journal" (cream / oat / sage / rose / slate)
+     Source: coolors.co/edafb8-f7e1d7-dedbd2-b0c4b1-4a5759
+     The pink and sage are decorative-only; rose/forest are darker derivations
+     for text use that clear WCAG AA on every page surface. */
+  --paper:        #F7E1D7;
+  --paper-deep:   #DEDBD2;
+  --paper-card:   #FCEFE8;
+  --paper-edge:   #C8C0B5;
+  --rule:         #B5ACA0;
+  --ink:          #3D4849;
+  --ink-soft:     #4A5759;
+  --muted:        #566365;
+  --rust:         #8E3A4A;
+  --rust-deep:    #7E3A48;
+  --forest:       #3F5E45;
+  --rose-soft:    #EDAFB8;
+  --sage-soft:    #B0C4B1;
+  --highlight:    #EDAFB8;
+
+  /* Typography */
+  --font-display: "Fraunces", "Iowan Old Style", Palatino, Georgia, serif;
+  --font-body:    "Hanken Grotesk", -apple-system, BlinkMacSystemFont, "Helvetica Neue", sans-serif;
+  --font-mono:    "JetBrains Mono", "SFMono-Regular", Consolas, monospace;
+
+  /* Rhythm */
+  --measure: 68ch;
+  --gutter: clamp(1.25rem, 4vw, 3rem);
+}
+
+/* ---------- base ---------- */
+
+html, body {
+  background: var(--paper);
+  color: var(--ink);
+  font-family: var(--font-body);
+  font-feature-settings: "ss01", "ss02", "cv11";
+  font-weight: 380;
+  font-size: 17px;
+  line-height: 1.65;
+  letter-spacing: 0.005em;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+/* Subtle paper grain — SVG noise, no extra request */
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  opacity: 0.35;
+  mix-blend-mode: multiply;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='160' height='160'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 0.29  0 0 0 0 0.34  0 0 0 0 0.35  0 0 0 0.10 0'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>");
+}
+
+/* Push real content above the noise */
+nav.navbar,
+#quarto-content,
+.page-footer,
+footer { position: relative; z-index: 1; }
+
+::selection { background: var(--highlight); color: var(--ink); }
+
+a {
+  color: var(--rust-deep);
+  text-decoration-color: var(--paper-edge);
+  text-decoration-thickness: 1px;
+  text-underline-offset: 3px;
+  transition: color 120ms ease, text-decoration-color 120ms ease;
+}
+a:hover {
+  color: var(--rust);
+  text-decoration-color: var(--rust);
+}
+
+/* ---------- typography ---------- */
+
+h1, h2, h3, h4, h5 {
+  font-family: var(--font-display);
+  color: var(--ink);
+  font-weight: 380;
+  font-style: normal;
+  letter-spacing: -0.01em;
+  font-variation-settings: "opsz" 96, "SOFT" 80;
+}
+
+h1 { font-size: clamp(2.4rem, 5vw, 3.8rem); line-height: 1.02; }
+h2 { font-size: clamp(1.6rem, 2.6vw, 2.15rem); line-height: 1.15; margin-top: 4.5rem; }
+h3 { font-size: 1.25rem; letter-spacing: 0.005em; }
+
+main p { max-width: var(--measure); }
+main p code,
+main li code {
+  font-family: var(--font-mono);
+  font-size: 0.86em;
+  background: var(--paper-deep);
+  border: 1px solid var(--paper-edge);
+  padding: 0.05em 0.35em;
+  border-radius: 3px;
+}
+
+/* Section headings — marginalia hairline rust dash above, italic Fraunces.
+   Applied to standalone h2s (the upload form, the closer) and to h3s that
+   sit inside chapters as proper sections. */
+main h2,
+main .analysis-section h3 {
+  position: relative;
+  padding-top: 1.6rem;
+  border-top: 1px solid var(--rule);
+  font-family: var(--font-display);
+  font-style: italic;
+  font-variation-settings: "opsz" 144, "SOFT" 100;
+  font-weight: 360;
+  color: var(--ink);
+  margin-top: 4.5rem;
+}
+main h2::before,
+main .analysis-section h3::before {
+  content: "";
+  position: absolute;
+  left: 0; top: -1px;
+  width: 4.5rem;
+  height: 1px;
+  background: var(--rust);
+}
+
+main .analysis-section h3 {
+  font-size: clamp(1.4rem, 2.2vw, 1.8rem);
+  line-height: 1.2;
+}
+
+/* ---------- chapters & hero summary ----------
+   The page is grouped into ~6 chapters, each with a small mono "Chapter N"
+   eyebrow, a big italic title, and an italic lede. Section h2s sit inside
+   chapters with the marginalia treatment above. */
+
+.hero-summary {
+  border-top: 1px solid var(--rule);
+  border-bottom: 1px solid var(--rule);
+  padding: 2rem 0;
+  margin: 1rem 0 3.5rem;
+}
+
+/* Per-section factoid: a small italic line of computed text under the
+   static section description, naming a value drawn from the user's data.
+   "The strongest pairing is HRV ↔ Resting HR (r = +0.74)." */
+.section-fact {
+  font-family: var(--font-display);
+  font-style: italic;
+  font-variation-settings: "opsz" 96, "SOFT" 100;
+  font-size: 1.05rem;
+  line-height: 1.5;
+  color: var(--ink-soft);
+  border-left: 2px solid var(--rust);
+  padding: 0.1rem 0 0.1rem 1rem;
+  margin: 0.4rem 0 1.6rem;
+  max-width: 56ch;
+}
+.section-fact strong {
+  font-weight: 500;
+  color: var(--rust);
+  font-style: normal;
+  font-family: var(--font-body);
+  letter-spacing: 0.005em;
+}
+.hero-summary p {
+  font-family: var(--font-display);
+  font-style: italic;
+  font-variation-settings: "opsz" 96, "SOFT" 100;
+  font-size: clamp(1.2rem, 2.2vw, 1.55rem);
+  line-height: 1.45;
+  color: var(--ink);
+  max-width: 60ch;
+  margin: 0;
+}
+.hero-summary strong {
+  font-weight: 500;
+  font-style: normal;
+  color: var(--rust);
+  font-family: var(--font-body);
+  letter-spacing: 0.005em;
+}
+
+/* Chapter divider: a small mono "Chapter N" eyebrow, a big italic title,
+   and an italic lede paragraph, sitting as siblings in the document so the
+   h2 stays in the document outline (and therefore in the TOC). */
+
+main .chapter-num {
+  display: block;
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  letter-spacing: 0.24em;
+  text-transform: uppercase;
+  color: var(--rust);
+  margin: 7rem 0 0.7rem;
+}
+
+main h2.chapter-title {
+  font-family: var(--font-display);
+  font-style: italic;
+  font-size: clamp(2.2rem, 4.2vw, 3.4rem);
+  font-variation-settings: "opsz" 144, "SOFT" 100;
+  font-weight: 360;
+  letter-spacing: -0.025em;
+  color: var(--ink);
+  border: none;
+  padding: 0;
+  margin: 0 0 1rem;
+  line-height: 1.05;
+}
+main h2.chapter-title::before { display: none; }
+
+main .chapter-lede {
+  font-family: var(--font-display);
+  font-style: italic;
+  font-variation-settings: "opsz" 96, "SOFT" 100;
+  font-size: 1.15rem;
+  line-height: 1.55;
+  color: var(--muted);
+  max-width: 56ch;
+  margin: 0 0 0.5rem;
+}
+
+/* The first section h3 right after a chapter lede doesn't need the giant
+   top margin that normally separates standalone sections — the chapter
+   block already provides plenty of separation. */
+main .chapter-lede + .analysis-section h3,
+main h2.chapter-title + .analysis-section h3 {
+  margin-top: 2rem;
+}
+
+/* ---------- title block ---------- */
+
+#title-block-header.quarto-title-block.default {
+  border-bottom: 1px solid var(--rule);
+  padding: clamp(2rem, 6vw, 4.5rem) 0 clamp(2rem, 5vw, 3.5rem);
+  margin-bottom: 3rem;
+  position: relative;
+}
+
+#title-block-header .quarto-title h1.title {
+  font-family: var(--font-display);
+  font-style: italic;
+  font-variation-settings: "opsz" 144, "SOFT" 100;
+  font-weight: 360;
+  letter-spacing: -0.025em;
+  margin: 0 0 0.6rem;
+}
+
+#title-block-header .subtitle {
+  font-family: var(--font-body);
+  font-size: 1.1rem;
+  font-weight: 380;
+  color: var(--muted);
+  max-width: 56ch;
+  letter-spacing: 0.005em;
+  margin-top: 0.4rem;
+}
+
+#title-block-header .description {
+  color: var(--muted);
+  font-size: 1.05rem;
+  font-style: italic;
+}
+
+/* Tiny editorial dateline-style label above the title */
+#title-block-header.quarto-title-block.default::before {
+  content: "A private journal · in-browser analysis";
+  display: block;
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--rust);
+  margin-bottom: 1.4rem;
+}
+
+/* ---------- navbar ---------- */
+
+nav.navbar {
+  background: transparent !important;
+  border-bottom: 1px solid var(--rule);
+  padding: 0.85rem 0;
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+}
+
+nav.navbar .navbar-brand,
+nav.navbar .navbar-title {
+  font-family: var(--font-display);
+  font-style: italic;
+  font-variation-settings: "opsz" 24, "SOFT" 100;
+  font-weight: 420;
+  font-size: 1.3rem;
+  color: var(--ink) !important;
+  letter-spacing: -0.01em;
+}
+
+nav.navbar .nav-link {
+  font-family: var(--font-body);
+  font-size: 0.92rem;
+  letter-spacing: 0.04em;
+  text-transform: lowercase;
+  color: var(--ink-soft) !important;
+  position: relative;
+  padding: 0.35rem 0.9rem;
+}
+nav.navbar .nav-link::after {
+  content: "";
+  position: absolute;
+  left: 0.9rem; right: 0.9rem; bottom: 0.1rem;
+  height: 1px;
+  background: var(--rust);
+  transform: scaleX(0);
+  transform-origin: left;
+  transition: transform 220ms ease;
+}
+nav.navbar .nav-link:hover::after,
+nav.navbar .nav-link.active::after { transform: scaleX(1); }
+
+nav.navbar .quarto-navbar-tools .nav-link i { color: var(--ink-soft); }
+
+/* ---------- main column ---------- */
+
+main.content {
+  max-width: 1100px !important;
+  margin-left: auto;
+  margin-right: auto;
+  padding: 0 var(--gutter) 6rem;
+}
+
+/* Quiet, restrained TOC */
+#TOC, nav#TOC {
+  border-left: 1px solid var(--rule);
+  padding-left: 1.1rem;
+}
+#TOC .toc-active,
+#TOC a.active {
+  color: var(--rust) !important;
+  font-weight: 500;
+}
+#TOC a {
+  color: var(--muted);
+  font-size: 0.85rem;
+  letter-spacing: 0.01em;
+  text-decoration: none;
+  border: none;
+}
+#TOC a:hover { color: var(--ink); }
+#TOC > h2,
+#toc-title {
+  font-family: var(--font-mono);
+  font-size: 0.68rem;
+  text-transform: uppercase;
+  letter-spacing: 0.22em;
+  color: var(--rust);
+  font-weight: 500;
+  border: none;
+  margin-bottom: 1rem;
+}
+
+/* ---------- callouts (privacy note) ---------- */
+
+.callout-note,
+div.callout {
+  border: none !important;
+  border-left: 2px solid var(--forest) !important;
+  background: linear-gradient(
+    to right,
+    rgba(63, 94, 69, 0.08) 0%,
+    rgba(63, 94, 69, 0) 80%
+  ) !important;
+  border-radius: 0 !important;
+  padding: 1.15rem 1.4rem 1.15rem 1.6rem !important;
+  margin: 2.2rem 0 !important;
+  box-shadow: none !important;
+  position: relative;
+}
+
+.callout-note .callout-body,
+div.callout .callout-body {
+  font-family: var(--font-body);
+  font-size: 0.98rem;
+  color: var(--ink-soft);
+}
+.callout-note .callout-body strong,
+div.callout .callout-body strong {
+  color: var(--forest);
+  font-weight: 600;
+}
+
+.callout-note::before,
+div.callout::before {
+  content: "Privacy";
+  position: absolute;
+  top: -0.6rem;
+  left: 1.4rem;
+  background: var(--paper);
+  padding: 0 0.5rem;
+  font-family: var(--font-mono);
+  font-size: 0.62rem;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--forest);
+}
+
+/* hide the default pencil/info icon */
+.callout-note .callout-icon-container,
+div.callout .callout-icon-container { display: none !important; }
+
+/* ---------- form controls (file + select) ----------
+   Observable Inputs uses hashed class names (e.g. .oi-3a86ea) so target
+   forms via :has() — any form containing a file input or select is ours. */
+
+form:has(> input[type="file"]),
+form:has(> div > input[type="file"]),
+form:has(> select) {
+  background: var(--paper-deep);
+  border: 1px dashed var(--rule);
+  padding: 1.4rem 1.6rem;
+  margin: 1.2rem 0 0.4rem;
+  border-radius: 2px;
+  transition: border-color 180ms ease, background 180ms ease;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.7rem;
+  width: 100% !important;
+  box-sizing: border-box;
+}
+form:has(> input[type="file"]):hover,
+form:has(> div > input[type="file"]):hover,
+form:has(> select):hover {
+  border-color: var(--rust);
+  background: var(--paper);
+}
+
+/* Eyebrow label ("Visible CSV export", "Tracker", "Tracker A", etc.) */
+form:has(input[type="file"]) > label,
+form:has(select) > label {
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--muted);
+  white-space: nowrap;
+  margin: 0;
+  align-self: flex-start;
+  text-align: left;
+  width: auto;
+}
+
+/* File input wrapper div — full-width below the label */
+form:has(input[type="file"]) > div {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+/* The native file input itself: shrink the unstyled "no file chosen" text
+   into a refined caption to the right of the button. */
+.observablehq input[type="file"],
+input[type="file"] {
+  font-family: var(--font-body);
+  font-size: 0.92rem;
+  font-style: italic;
+  color: var(--muted);
+  background: transparent;
+  border: 0;
+  padding: 0;
+  cursor: pointer;
+  width: 100%;
+  max-width: 100%;
+}
+
+/* The native button portion of the file input — restyled to look intentional. */
+input[type="file"]::file-selector-button {
+  font-family: var(--font-display);
+  font-style: italic;
+  font-variation-settings: "opsz" 24, "SOFT" 100;
+  font-weight: 460;
+  font-size: 1rem;
+  letter-spacing: 0.005em;
+  color: var(--paper);
+  background: var(--rust);
+  border: 1px solid var(--rust);
+  border-radius: 2px;
+  padding: 0.55rem 1.4rem;
+  margin-right: 1rem;
+  cursor: pointer;
+  transition: background 160ms ease, border-color 160ms ease,
+              transform 120ms ease, box-shadow 160ms ease;
+  box-shadow: 0 1px 0 rgba(61, 72, 73, 0.06),
+              0 6px 14px -8px rgba(142, 58, 74, 0.45);
+}
+input[type="file"]::file-selector-button:hover {
+  background: var(--rust-deep);
+  border-color: var(--rust-deep);
+  box-shadow: 0 1px 0 rgba(61, 72, 73, 0.06),
+              0 8px 18px -8px rgba(142, 58, 74, 0.55);
+}
+input[type="file"]::file-selector-button:active {
+  transform: translateY(1px);
+}
+input[type="file"]:focus-visible::file-selector-button {
+  outline: 2px solid var(--rust);
+  outline-offset: 3px;
+}
+/* Don't double up the outline when the focus moves to the input itself —
+   the button receives focus, not the wrapper. */
+input[type="file"]:focus-visible { outline: none; }
+
+/* Dark-mode tweak: pink button on dark slate needs cream text + slightly
+   different shadow tone. */
+body.quarto-dark input[type="file"]::file-selector-button {
+  color: #1F2728;
+  box-shadow: 0 1px 0 rgba(0, 0, 0, 0.25),
+              0 8px 18px -8px rgba(237, 175, 184, 0.55);
+}
+body.quarto-dark input[type="file"]::file-selector-button:hover {
+  background: var(--rust-deep);
+  border-color: var(--rust-deep);
+}
+
+/* ---------- select dropdowns ---------- */
+
+/* Reset native chrome so we can paint our own. */
+form:has(select) > select,
+.observablehq select {
+  appearance: none;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+
+  font-family: var(--font-body);
+  font-size: 0.95rem;
+  font-weight: 400;
+  letter-spacing: 0.005em;
+  line-height: 1.3;
+  color: var(--ink);
+  background-color: var(--paper-card);
+  border: 1px solid var(--paper-edge);
+  border-radius: 2px;
+  padding: 0.55rem 2.4rem 0.55rem 0.9rem;
+  width: 100%;
+  max-width: 32rem;
+  cursor: pointer;
+  transition: border-color 160ms ease, background 160ms ease,
+              box-shadow 160ms ease;
+
+  /* Custom chevron, in the rust accent. URL-encoded SVG so it lives in CSS. */
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 8' fill='none' stroke='%238E3A4A' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'><path d='M1 1.5 L6 6.5 L11 1.5'/></svg>");
+  background-repeat: no-repeat;
+  background-position: right 0.95rem center;
+  background-size: 0.7rem 0.5rem;
+
+  box-shadow: 0 1px 0 rgba(61, 72, 73, 0.04);
+}
+
+form:has(select) > select:hover,
+.observablehq select:hover {
+  border-color: var(--rust);
+  background-color: var(--paper);
+}
+
+form:has(select) > select:focus-visible,
+.observablehq select:focus-visible {
+  outline: 2px solid var(--rust);
+  outline-offset: 2px;
+  border-color: var(--rust);
+}
+
+/* The dropdown <option> list itself is OS-native (we can't fully restyle),
+   but we can hint with these properties on the select; some browsers honor
+   them in the popup. */
+form:has(select) > select option,
+.observablehq select option {
+  font-family: var(--font-body);
+  background: var(--paper-card);
+  color: var(--ink);
+}
+
+/* Dark mode: chevron needs to be the lighter pink so it reads on dark. */
+body.quarto-dark form:has(select) > select,
+body.quarto-dark .observablehq select {
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 8' fill='none' stroke='%23EDAFB8' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'><path d='M1 1.5 L6 6.5 L11 1.5'/></svg>");
+}
+
+/* When two select forms sit adjacent (Tracker A + Tracker B), put them
+   side by side on wide screens for a more confident pairing. */
+@media (min-width: 720px) {
+  form:has(> select) + form:has(> select) {
+    margin-top: 0.4rem;
+  }
+  /* Pair containers: if Quarto wraps the two forms, allow them to flex.
+     The OJS cells render each form in its own cell-output-display, which
+     are siblings in .cell. We can't easily flex sibling cells without
+     adjusting Quarto's layout, so leave them stacked but tighter. */
+}
+
+/* Upload status banner — replaces the old plain box */
+.upload-status {
+  margin: 1.2rem 0 2.4rem;
+  padding: 1rem 1.3rem;
+  font-size: 0.95rem;
+  background: transparent;
+  border: none;
+  border-left: 2px solid transparent;
+  display: flex;
+  align-items: baseline;
+  gap: 0.7rem;
+  font-family: var(--font-body);
+  transition: border-color 220ms ease, color 220ms ease;
+}
+
+.upload-status.idle {
+  border-left-color: var(--paper-edge);
+  color: var(--muted);
+  font-style: italic;
+}
+.upload-status.idle em { font-style: normal; }
+.upload-status.idle::before {
+  content: "Idle";
+  font-family: var(--font-mono);
+  font-size: 0.65rem;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--muted);
+  flex-shrink: 0;
+}
+.upload-status.active::before {
+  content: "Working";
+  font-family: var(--font-mono);
+  font-size: 0.65rem;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--rust);
+  flex-shrink: 0;
+  align-self: center;
+}
+
+.upload-status.active {
+  border-left-color: var(--rust);
+  color: var(--ink);
+  background: linear-gradient(
+    to right,
+    rgba(142, 58, 74, 0.08) 0%,
+    rgba(142, 58, 74, 0) 70%
+  );
+}
+.upload-status.active strong { color: var(--rust-deep); font-weight: 600; }
+
+.upload-status .spinner {
+  display: inline-block;
+  width: 0.85em;
+  height: 0.85em;
+  margin-right: 0.15em;
+  border: 1.5px solid rgba(142, 58, 74, 0.25);
+  border-top-color: var(--rust);
+  border-radius: 50%;
+  animation: visible-spin 0.9s linear infinite;
+  flex-shrink: 0;
+  align-self: center;
+}
+
+@keyframes visible-spin { to { transform: rotate(360deg); } }
+
+/* ---------- exercise / chart cells ---------- */
+
+.cell, .exercise-cell {
+  margin: 1.6rem 0 2.4rem;
+}
+
+/* Chart card treatment — only cells that actually render an image. */
+.cell-output-display:has(> img),
+.cell-output-display:has(> .quarto-figure),
+.exercise-cell .exercise-cell-output:has(img) {
+  background: var(--paper-card);
+  border: 1px solid var(--paper-edge);
+  border-radius: 2px;
+  padding: 1.4rem clamp(1rem, 2vw, 1.8rem);
+  box-shadow:
+    0 1px 0 rgba(61, 72, 73, 0.05),
+    0 14px 30px -22px rgba(61, 72, 73, 0.18);
+  position: relative;
+}
+
+.cell-output-display img,
+.exercise-cell img,
+.cell-output img {
+  display: block;
+  margin: 0 auto;
+  max-width: 100%;
+  filter: contrast(1.02);
+}
+
+/* Stdout / R messages — set as quiet typography, like footnotes.
+   Scope strictly to stdout-classed outputs so it doesn't leak onto
+   .cell-output containers that hold OJS widgets (file picker, dropdowns). */
+.cell-output-stdout,
+pre.cell-output-stdout,
+.cell-output > pre.cell-output-stdout {
+  font-family: var(--font-mono);
+  font-size: 0.82rem;
+  background: var(--paper-deep);
+  border: 1px solid var(--paper-edge);
+  border-left: 2px solid var(--rust);
+  padding: 0.75rem 1rem !important;
+  color: var(--ink-soft);
+  line-height: 1.55;
+  border-radius: 0;
+}
+
+/* quarto-live's per-cell spinners */
+.exercise-cell .spinner-border,
+.exercise-cell .spinner-grow {
+  width: 1.4rem !important;
+  height: 1.4rem !important;
+  color: var(--rust) !important;
+  margin: 1rem 0 !important;
+  border-width: 1.5px !important;
+}
+.exercise-cell:has(.spinner-border)::after,
+.exercise-cell:has(.spinner-grow)::after {
+  content: "Drawing…";
+  display: inline-block;
+  margin-left: 0.6em;
+  color: var(--rust);
+  font-style: italic;
+  font-family: var(--font-display);
+  font-variation-settings: "opsz" 96, "SOFT" 100;
+  font-size: 1rem;
+  vertical-align: middle;
+}
+
+/* The "what you'll see once you upload" hint */
+.empty-state-hint {
+  border-top: 1px solid var(--rule);
+  border-bottom: 1px solid var(--rule);
+  margin: 1.6rem 0 2.4rem;
+  padding: 1.4rem 0;
+  font-family: var(--font-display);
+  font-style: italic;
+  font-variation-settings: "opsz" 96, "SOFT" 100;
+  font-size: 1.1rem;
+  color: var(--muted);
+  max-width: 56ch;
+  position: relative;
+}
+.empty-state-hint::before {
+  content: "Once uploaded";
+  position: absolute;
+  top: -0.55rem;
+  left: 0;
+  background: var(--paper);
+  padding-right: 0.7rem;
+  font-family: var(--font-mono);
+  font-style: normal;
+  font-size: 0.62rem;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--rust);
+}
+body.has-data .empty-state-hint { display: none; }
+
+/* ---------- code blocks ---------- */
+
+pre, code {
+  font-family: var(--font-mono);
+}
+div.sourceCode, pre.sourceCode {
+  background: var(--paper-card) !important;
+  border: 1px solid var(--paper-edge);
+  border-radius: 2px;
+  padding: 0.9rem 1.1rem;
+}
+
+/* ---------- horizontal rules ---------- */
+
+hr {
+  border: none;
+  height: 1px;
+  background: var(--rule);
+  margin: 4rem auto;
+  max-width: 32rem;
+  position: relative;
+}
+hr::before {
+  content: "❦";
+  position: absolute;
+  top: -0.7em;
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--paper);
+  padding: 0 0.6rem;
+  color: var(--rust);
+  font-size: 0.9rem;
+}
+
+/* ---------- lists ---------- */
+
+main ul, main ol { padding-left: 1.4rem; }
+main ul li::marker { color: var(--rust); }
+main ol li::marker { color: var(--rust); font-family: var(--font-display); font-style: italic; }
+main li { margin: 0.35rem 0; }
+
+main blockquote {
+  border-left: 2px solid var(--rust);
+  margin: 1.8rem 0;
+  padding: 0.4rem 0 0.4rem 1.5rem;
+  font-family: var(--font-display);
+  font-style: italic;
+  font-size: 1.15rem;
+  color: var(--ink-soft);
+  font-variation-settings: "opsz" 96, "SOFT" 100;
+}
+
+/* ---------- footer ---------- */
+
+.page-footer, footer.footer {
+  border-top: 1px solid var(--rule);
+  background: transparent;
+  color: var(--muted);
+  font-size: 0.82rem;
+  padding: 1.6rem var(--gutter);
+  letter-spacing: 0.02em;
+}
+
+/* ---------- dark mode (warm "night journal", not blue darkly) ----------
+   Scope to the page root only — Quarto puts data-bs-theme="dark" on the
+   navbar regardless of the page theme, and we don't want our dark-palette
+   variables bleeding into a navbar that should stay on parchment. */
+
+html[data-bs-theme="dark"],
+html.quarto-dark,
+body.quarto-dark {
+  --paper:       #1F2728;   /* deepened slate */
+  --paper-deep:  #2A3334;
+  --paper-card:  #2F3839;
+  --paper-edge:  #3A4445;
+  --rule:        #4A5759;
+  --ink:         #F7E1D7;   /* cream */
+  --ink-soft:    #DEDBD2;   /* oat */
+  --muted:       #A8B0A6;   /* muted sage-grey */
+  --rust:        #EDAFB8;   /* original pink — vivid on dark */
+  --rust-deep:   #F5C5CD;   /* lighter pink for hover */
+  --forest:      #B0C4B1;   /* original sage */
+  --rose-soft:   #EDAFB8;
+  --sage-soft:   #B0C4B1;
+  --highlight:   #EDAFB8;
+}
+
+html[data-bs-theme="dark"] .cell-output-display,
+html[data-bs-theme="dark"] .exercise-cell .exercise-cell-output,
+html[data-bs-theme="dark"] div.sourceCode,
+html[data-bs-theme="dark"] pre.sourceCode {
+  background: var(--paper-card) !important;
+}
+html[data-bs-theme="dark"] body::before { opacity: 0.45; }
+html[data-bs-theme="dark"] .callout-note::before,
+html[data-bs-theme="dark"] div.callout::before { background: var(--paper); }
+html[data-bs-theme="dark"] hr::before { background: var(--paper); }
+
+/* The navbar carries data-bs-theme="dark" from Quarto regardless of the page
+   theme. In *light* mode that would make the navbar inherit our dark palette
+   variables; in *dark* mode we want the navbar to stay dark with the page.
+   So scope the light-palette pin to light pages only, and force readable
+   brand/link colors per mode. */
+body:not(.quarto-dark) nav.navbar[data-bs-theme="dark"] {
+  --paper:      #F7E1D7;
+  --paper-deep: #DEDBD2;
+  --paper-edge: #C8C0B5;
+  --rule:       #B5ACA0;
+  --ink:        #3D4849;
+  --ink-soft:   #4A5759;
+  --muted:      #566365;
+  --rust:       #8E3A4A;
+}
+body:not(.quarto-dark) nav.navbar .navbar-brand,
+body:not(.quarto-dark) nav.navbar .navbar-title {
+  color: #3D4849 !important;
+}
+body:not(.quarto-dark) nav.navbar .nav-link {
+  color: #4A5759 !important;
+}
+
+/* Dark mode: pull brand and links out of any inherited dark/dark conflict */
+body.quarto-dark nav.navbar .navbar-brand,
+body.quarto-dark nav.navbar .navbar-title {
+  color: #F7E1D7 !important;
+}
+body.quarto-dark nav.navbar .nav-link {
+  color: #DEDBD2 !important;
+}
+
+/* ---------- focus-visible (keyboard accessibility) ---------- */
+
+a:focus-visible,
+button:focus-visible,
+input:focus-visible,
+select:focus-visible,
+.nav-link:focus-visible,
+summary:focus-visible {
+  outline: 2px solid var(--rust);
+  outline-offset: 3px;
+  border-radius: 2px;
+}
+input[type="file"]:focus-visible {
+  outline-offset: 5px;
+}
+
+/* ---------- gate analysis sections behind upload ----------
+   Empty-state hint is shown only before the user uploads;
+   visual treatment lives in the .empty-state-hint block above. */
+
+body:not(.has-data) .analysis-section { display: none; }
+.empty-state-hint { display: none; }
+body:not(.has-data) .empty-state-hint { display: block; }
+
+/* ---------- notes list (Section 12) ---------- */
+
+.notes-summary {
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.18em;
+  color: var(--rust);
+  margin: 0.5rem 0 1.4rem;
+}
+
+.notes-list {
+  max-height: 32rem;
+  overflow-y: auto;
+  border-top: 1px solid var(--rule);
+  border-bottom: 1px solid var(--rule);
+  padding: 0.4rem 0.2rem;
+}
+
+.notes-list::-webkit-scrollbar { width: 8px; }
+.notes-list::-webkit-scrollbar-thumb {
+  background: var(--paper-edge);
+  border-radius: 4px;
+}
+
+.note-row {
+  padding: 0.85rem 0.6rem;
+  border-bottom: 1px solid var(--paper-edge);
+}
+.note-row:last-child { border-bottom: none; }
+
+.note-row .note-date {
+  font-family: var(--font-display);
+  font-style: italic;
+  font-variation-settings: "opsz" 24, "SOFT" 100;
+  font-size: 1rem;
+  color: var(--ink);
+  margin-bottom: 0.1rem;
+}
+
+.note-row .note-meta {
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  letter-spacing: 0.05em;
+  color: var(--muted);
+  margin-bottom: 0.4rem;
+}
+
+.note-row .note-text {
+  color: var(--ink);
+  font-size: 0.95rem;
+  line-height: 1.55;
+  white-space: pre-wrap;
+}
+
+/* ---------- anomaly pills (Section 14) ---------- */
+
+.anom-row .note-text {
+  white-space: normal;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+
+.anom-pill {
+  display: inline-block;
+  padding: 0.15em 0.55em;
+  border-radius: 999px;
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  letter-spacing: 0.01em;
+  border: 1px solid transparent;
+}
+
+.anom-pill.anom-up {
+  background: color-mix(in srgb, var(--rust) 14%, transparent);
+  color: var(--rust-deep);
+  border-color: color-mix(in srgb, var(--rust) 28%, transparent);
+}
+
+.anom-pill.anom-down {
+  background: color-mix(in srgb, var(--forest) 14%, transparent);
+  color: var(--forest);
+  border-color: color-mix(in srgb, var(--forest) 28%, transparent);
+}
+
+/* ---------- small screens ---------- */
+
+@media (max-width: 720px) {
+  html, body { font-size: 16px; }
+  #title-block-header.quarto-title-block.default::before {
+    font-size: 0.65rem;
+    letter-spacing: 0.16em;
+  }
+  main h2 { margin-top: 3rem; }
+  hr { margin: 2.6rem auto; }
+}
