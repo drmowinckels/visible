@@ -1,12 +1,17 @@
 project:
   type: website
   output-dir: _site
+  resources:
+    - sample-visible-multiyear.csv
 
 website:
   title: "Visible Explorer"
   description: "Upload your Visible app export and explore your long COVID / ME-CFS tracking data — analyses run entirely in your browser via WebR. No data leaves your device."
-  favicon: favicon.svg
+  favicon: logo.svg
+  image: logo.svg
   navbar:
+    logo: logo.png
+    logo-alt: "Visible Explorer"
     background: light
     foreground: "#1F1A14"
     pinned: false
@@ -20,6 +25,10 @@ website:
       - icon: github
         href: https://github.com/drmowinckels/visible
         aria-label: "GitHub repository"
+  page-footer:
+    border: false
+    center: |
+      Built around the Visible app's free-tier export. Pro-tier metrics are not accounted for here. &nbsp;·&nbsp; [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/)
 
 format:
   live-html:

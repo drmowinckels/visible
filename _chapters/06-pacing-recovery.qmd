@@ -7,7 +7,7 @@ Chapter VI
 ::: {.chapter-lede}
 The body keeps a running tab.
 What you do today often shows up two or three days later, the days that *do* knock you sideways have their own arc back to baseline, and a crash that drags on for a week is a different beast than one that lifts overnight.
-Four views of the action-and-reaction loop that defines pacing — and because patterns shift over time, this chapter focuses on your **last 12 months** when your data spans more than 18 months.
+Five views of the action-and-reaction loop that defines pacing — and because patterns shift over time, this chapter focuses on your **last 12 months** when your data spans more than 18 months.
 The earlier chapters show the long view; this one tells you where you are *now*.
 :::
 
@@ -174,9 +174,8 @@ if (exists("visible_recent")) {
         labs(x = "Days after the busy day",
              y = "Relationship with stability",
              title = "When does today's exertion show up in your body?",
-             subtitle = sprintf(
-               "Based on %s · negative = more demand now, lower stability later · highlighted = strongest lag",
-               recent_label)) +
+             subtitle = sprintf("Based on %s", recent_label),
+             caption = "Negative = more demand now, lower stability later · highlighted = strongest lag") +
         viz$theme(base_size = 11)
     }
   }
@@ -350,12 +349,238 @@ if (exists("visible_recent")) {
         labs(x = "Tomorrow's stability score",
              y = NULL,
              title = "Stability the day after, by how busy today was",
-             caption = sprintf(
-               "Based on %s · dot is the average · whiskers show uncertainty · n = days in each bin",
-               recent_label)) +
+             subtitle = sprintf("Based on %s", recent_label),
+             caption = "Dot = average · whiskers = uncertainty · n = days in each bin") +
         viz$theme(base_size = 12) +
         theme(panel.grid.major.y = element_blank(),
               plot.margin = margin(28, 25, 15, 15))
+    }
+  }
+}
+```
+
+:::
+
+::: {.analysis-section}
+
+### Rolling pacing
+
+The PEM window and your personal ceiling are *static* views — averages across many days.
+This one is moving: a daily score that compares the last week of *load* (your four demand tags) against the last week of *capacity* (your stability score).
+**Negative = you've been pushing past your envelope; positive = you've been resting within it.**
+The score is standardized to your own range, so zero is your personal middle, not anyone else's.
+Stretches of red are weeks worth a closer look — the small marks along the bottom show where Crash days fell.
+
+```{webr}
+#| label: fact-pacing
+#| input: ["fileText"]
+
+if (exists("visible_recent")) {
+  exertion_trackers <- c("Physically active", "Mentally demanding",
+                         "Socially demanding", "Emotionally stressful")
+  available_ex <- intersect(exertion_trackers, unique(visible_recent$tracker))
+
+  if (length(available_ex) < 2 ||
+      !"Stability Score" %in% visible_recent$tracker) {
+    htmltools::HTML(
+      "<p class='section-fact'>Need at least two demand tags and a Stability Score to compute a pacing score.</p>"
+    )
+  } else {
+    ex <- visible_recent |>
+      filter(tracker %in% available_ex) |>
+      group_by(odate, tracker) |>
+      summarise(value = max(value, na.rm = TRUE), .groups = "drop") |>
+      pivot_wider(names_from = tracker, values_from = value)
+
+    stab <- visible_recent |>
+      filter(tracker == "Stability Score") |>
+      group_by(odate) |>
+      summarise(stab = mean(value, na.rm = TRUE), .groups = "drop")
+
+    d_range <- range(visible_recent$odate, na.rm = TRUE)
+    all_days <- data.frame(odate = seq.Date(d_range[1], d_range[2], "day"))
+    daily <- all_days |>
+      left_join(ex, by = "odate") |>
+      left_join(stab, by = "odate") |>
+      arrange(odate)
+
+    daily$total_ex <- rowSums(daily[, available_ex, drop = FALSE], na.rm = FALSE)
+
+    roll_mean <- function(x, k = 7L, min_k = 4L) {
+      n <- length(x); out <- rep(NA_real_, n)
+      for (i in seq_len(n)) {
+        lo <- max(1L, i - k + 1L)
+        v <- x[lo:i]
+        if (sum(!is.na(v)) >= min_k) out[i] <- mean(v, na.rm = TRUE)
+      }
+      out
+    }
+
+    daily$load_7 <- roll_mean(daily$total_ex)
+    daily$cap_7  <- roll_mean(daily$stab)
+
+    z <- function(x) {
+      m <- mean(x, na.rm = TRUE); s <- stats::sd(x, na.rm = TRUE)
+      if (is.na(s) || s == 0) rep(0, length(x)) else (x - m) / s
+    }
+    daily$pacing <- z(daily$cap_7) - z(daily$load_7)
+
+    pushing <- !is.na(daily$pacing) & daily$pacing < -0.5
+    n_scored <- sum(!is.na(daily$pacing))
+
+    if (n_scored < 30) {
+      htmltools::HTML(sprintf(
+        "<p class='section-fact'>Only %d days have both a 7-day load and 7-day capacity — not enough to score pacing yet.</p>",
+        n_scored
+      ))
+    } else {
+      pct_push <- 100 * sum(pushing) / n_scored
+      streak <- longest_run(pushing, daily$odate, daily$pacing)
+
+      streak_txt <- if (is.null(streak)) {
+        "no sustained pushing stretch stands out"
+      } else {
+        sprintf(
+          "longest pushing stretch lasted <strong>%d days</strong> from <strong>%s</strong>",
+          streak$length,
+          sub("^0", "", format(streak$start, "%d %b %Y"))
+        )
+      }
+
+      htmltools::HTML(sprintf(
+        paste0(
+          '<p class="section-fact">',
+          'Across %s, <strong>%.0f%%</strong> of scored days sat in the pushing zone ',
+          '(pacing &lt; −0.5); %s.',
+          '</p>'
+        ),
+        recent_label, pct_push, streak_txt
+      ))
+    }
+  }
+}
+```
+
+```{webr}
+#| label: chart-pacing
+#| input: ["fileText", "darkMode"]
+#| fig-width: 9
+#| fig-height: 5
+
+if (exists("visible_recent")) {
+  viz <- viz_theme(darkMode)
+
+  exertion_trackers <- c("Physically active", "Mentally demanding",
+                         "Socially demanding", "Emotionally stressful")
+  available_ex <- intersect(exertion_trackers, unique(visible_recent$tracker))
+
+  if (length(available_ex) < 2 ||
+      !"Stability Score" %in% visible_recent$tracker) {
+    cat("Need at least two demand tags and a Stability Score to plot pacing.\n")
+  } else {
+    ex <- visible_recent |>
+      filter(tracker %in% available_ex) |>
+      group_by(odate, tracker) |>
+      summarise(value = max(value, na.rm = TRUE), .groups = "drop") |>
+      pivot_wider(names_from = tracker, values_from = value)
+
+    stab <- visible_recent |>
+      filter(tracker == "Stability Score") |>
+      group_by(odate) |>
+      summarise(stab = mean(value, na.rm = TRUE), .groups = "drop")
+
+    d_range <- range(visible_recent$odate, na.rm = TRUE)
+    all_days <- data.frame(odate = seq.Date(d_range[1], d_range[2], "day"))
+    daily <- all_days |>
+      left_join(ex, by = "odate") |>
+      left_join(stab, by = "odate") |>
+      arrange(odate)
+
+    daily$total_ex <- rowSums(daily[, available_ex, drop = FALSE], na.rm = FALSE)
+
+    roll_mean <- function(x, k = 7L, min_k = 4L) {
+      n <- length(x); out <- rep(NA_real_, n)
+      for (i in seq_len(n)) {
+        lo <- max(1L, i - k + 1L)
+        v <- x[lo:i]
+        if (sum(!is.na(v)) >= min_k) out[i] <- mean(v, na.rm = TRUE)
+      }
+      out
+    }
+
+    daily$load_7 <- roll_mean(daily$total_ex)
+    daily$cap_7  <- roll_mean(daily$stab)
+
+    z <- function(x) {
+      m <- mean(x, na.rm = TRUE); s <- stats::sd(x, na.rm = TRUE)
+      if (is.na(s) || s == 0) rep(0, length(x)) else (x - m) / s
+    }
+    daily$pacing <- z(daily$cap_7) - z(daily$load_7)
+
+    plot_df <- daily[!is.na(daily$pacing), ]
+
+    if (nrow(plot_df) < 30) {
+      cat(sprintf("Only %d scored days available — need at least 30 to plot.\n",
+                  nrow(plot_df)))
+    } else {
+      plot_df$above <- pmax(plot_df$pacing, 0)
+      plot_df$below <- pmin(plot_df$pacing, 0)
+
+      crash_days <- if ("Crash" %in% visible_recent$tracker) {
+        cr <- visible_recent[visible_recent$tracker == "Crash" &
+                               !is.na(visible_recent$value) &
+                               visible_recent$value > 0, ]
+        unique(cr$odate)
+      } else {
+        as.Date(character(0))
+      }
+      crash_marks <- data.frame(
+        odate = plot_df$odate[plot_df$odate %in% crash_days]
+      )
+
+      p <- ggplot(plot_df, aes(odate, pacing)) +
+        geom_hline(yintercept = 0, colour = viz$rule, linewidth = 0.4) +
+        geom_hline(yintercept = c(-0.5, 0.5), colour = viz$rule,
+                   linetype = "dotted", linewidth = 0.3) +
+        geom_ribbon(aes(ymin = 0, ymax = above),
+                    fill = viz$secondary, alpha = 0.55) +
+        geom_ribbon(aes(ymin = below, ymax = 0),
+                    fill = viz$accent, alpha = 0.55) +
+        geom_line(colour = viz$ink_soft, linewidth = 0.4)
+
+      if (nrow(crash_marks) > 0) {
+        p <- p +
+          geom_rug(data = crash_marks, aes(x = odate),
+                   sides = "b", colour = viz$accent,
+                   length = grid::unit(0.025, "npc"),
+                   inherit.aes = FALSE)
+      }
+
+      y_lim <- max(abs(range(plot_df$pacing, na.rm = TRUE)))
+      y_lim <- ceiling(y_lim * 2) / 2
+
+      caption_txt <- paste0(
+        "Above zero = resting within your envelope · below zero = pushing past it",
+        if (nrow(crash_marks) > 0) " · marks below = crash days" else ""
+      )
+
+      p +
+        scale_x_date(date_breaks = "2 months", date_labels = "%b %Y",
+                     date_minor_breaks = "1 month",
+                     expand = expansion(mult = c(0.01, 0.01))) +
+        scale_y_continuous(breaks = seq(-y_lim, y_lim, by = 1),
+                           minor_breaks = seq(-y_lim, y_lim, by = 0.5),
+                           limits = c(-y_lim, y_lim)) +
+        labs(x = NULL,
+             y = "Pacing score (capacity − load)",
+             title = "How well have you been pacing?",
+             subtitle = sprintf(
+               "7-day rolling stability minus 7-day rolling demand, standardized · %s",
+               recent_label),
+             caption = caption_txt) +
+        viz$theme(base_size = 12) +
+        theme(plot.margin = margin(15, 25, 15, 15),
+              axis.text.x = element_text(size = rel(0.95)))
     }
   }
 }
@@ -495,9 +720,8 @@ if (exists("visible_recent") && "Crash" %in% visible_recent$tracker) {
         }) +
         labs(x = NULL, y = "Episode length (days)",
              title = "Crash episodes by length",
-             subtitle = sprintf(
-               "Each bar = one consecutive run of crash days · taller = more severe · %s",
-               recent_label)) +
+             subtitle = sprintf("Based on %s", recent_label),
+             caption = "Each bar = one consecutive run of crash days · taller = more severe") +
         viz$theme(base_size = 12) +
         theme(legend.position = "top",
               plot.margin = margin(15, 15, 10, 15))
@@ -711,11 +935,12 @@ if (exists("visible_mat_clean") && exists("visible") &&
       scale_fill_manual(values = pal, guide = "none") +
       scale_x_continuous(breaks = seq(0, 14, 2)) +
       labs(x = "Days after a hard day",
-           y = "Distance from typical (lower = worse)",
+           y = "Distance from typical",
            title = "How long does it take to bounce back?",
            subtitle = sprintf(
-             "Averaged across %d anomaly day(s) in %s · all measures flipped so down = worse",
-             length(anomaly_dates), recent_label)) +
+             "Averaged across %d anomaly day(s) in %s",
+             length(anomaly_dates), recent_label),
+           caption = "All measures flipped so down = worse · ribbon = standard error") +
       viz$theme(base_size = 12) +
       theme(legend.position = "top",
             plot.margin = margin(15, 25, 15, 15))

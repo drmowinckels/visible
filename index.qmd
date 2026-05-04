@@ -45,6 +45,8 @@ The CSV you upload is processed in-memory on your machine — nothing is sent to
 
 Export your data from the Visible app (**Settings → Export Data**), then drop the resulting `visible.csv` here.
 
+::: {.upload-loader}
+
 ```{ojs}
 //| label: ojs-file-picker
 //| echo: false
@@ -55,10 +57,45 @@ viewof file = Inputs.file({
 ```
 
 ```{ojs}
+//| label: ojs-sample-button
+//| echo: false
+viewof sampleClick = {
+  const btn = html`<button type="button" class="load-sample" aria-label="Load sample data">
+    <span class="load-sample-eyebrow">Or try it first</span>
+    <span class="load-sample-label">Load sample data</span>
+    <span class="load-sample-hint">three years of synthetic tracking</span>
+  </button>`;
+  let count = 0;
+  btn.value = 0;
+  btn.addEventListener('click', () => {
+    count += 1;
+    btn.value = count;
+    btn.classList.add('loading');
+    btn.dispatchEvent(new CustomEvent('input', { bubbles: true }));
+  });
+  return btn;
+}
+```
+
+:::
+
+```{ojs}
+//| label: ojs-sample-text
+//| echo: false
+//| output: false
+sampleText = {
+  if (!(Number(sampleClick) > 0)) return "";
+  const r = await fetch('sample-visible-multiyear.csv');
+  if (!r.ok) throw new Error(`Sample CSV failed to load (${r.status})`);
+  return await r.text();
+}
+```
+
+```{ojs}
 //| label: ojs-file-text
 //| echo: false
 //| output: false
-fileText = file ? await file.text() : ""
+fileText = file ? await file.text() : sampleText
 ```
 
 ```{ojs}
@@ -156,7 +193,7 @@ dataStatus = {
 //| echo: false
 html`<div class="upload-status ${fileText ? 'active' : 'idle'}">
   ${!fileText
-    ? html`<em>No file picked yet — choose your <code>visible.csv</code> above to begin.</em>`
+    ? html`<em>No file picked yet — choose your <code>visible.csv</code> above, or load the sample data to take it for a spin.</em>`
     : dataStatus.stage === 'ready'
       ? html`
           <div class="upload-status-row">
@@ -386,10 +423,8 @@ Before you act on anything you've seen here, a few things worth holding in mind.
 
 ## What's next
 
-A few things I'd like to add, when there's time:
-
-- **More long-COVID-specific lenses** — PEM-window detection, post-exertional patterns, rolling pacing scores.
-- **Suggestions welcome** — if there's a chart you wish you could see, the [GitHub Issues](https://github.com/drmowinckels/visible/issues) is the place to ask.
+This is a living tool — I'll keep adding lenses as the science (and your suggestions) push it forward.
+If there's a chart you wish you could see, the [GitHub Issues](https://github.com/drmowinckels/visible/issues) is the place to ask.
 
 ```{=html}
 <button class="print-report" type="button" aria-label="Print this report">
