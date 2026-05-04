@@ -330,6 +330,15 @@ nav.navbar .nav-link.active::after { transform: scaleX(1); }
 
 nav.navbar .quarto-navbar-tools .nav-link i { color: var(--ink-soft); }
 
+nav.navbar .navbar-logo {
+  height: 1.5rem;
+  width: auto;
+  margin-right: 0.6rem;
+  color: var(--rust);
+}
+body:not(.quarto-dark) nav.navbar .navbar-logo { color: #8E3A4A; }
+body.quarto-dark nav.navbar .navbar-logo { color: #EDAFB8; }
+
 /* ---------- main column ---------- */
 
 main.content {
@@ -531,6 +540,108 @@ body.quarto-dark input[type="file"]::file-selector-button {
 body.quarto-dark input[type="file"]::file-selector-button:hover {
   background: var(--rust-deep);
   border-color: var(--rust-deep);
+}
+
+/* ---------- upload loader: file picker + sample button as 2 columns ----------
+   The wrapper turns the two sibling Quarto cells into a grid so they read
+   as one "data loader" affordance. The sample button is the muted,
+   secondary action — same dashed-card silhouette, half-tone styling. */
+
+.upload-loader {
+  display: grid;
+  grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr);
+  gap: 1rem;
+  align-items: stretch;
+  margin: 1.2rem 0 0.4rem;
+}
+.upload-loader > .cell { margin: 0; }
+.upload-loader > .cell,
+.upload-loader > .cell > .cell-output-display,
+.upload-loader > .cell > .cell-output-display > div {
+  height: 100%;
+}
+.upload-loader form:has(input[type="file"]) {
+  margin: 0;
+  height: 100%;
+}
+
+@media (max-width: 720px) {
+  .upload-loader { grid-template-columns: 1fr; }
+}
+
+button.load-sample {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: center;
+  gap: 0.45rem;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  padding: 1.4rem 1.6rem;
+  font-family: var(--font-body);
+  color: var(--muted);
+  background: transparent;
+  border: 1px dashed var(--rule);
+  border-radius: 2px;
+  cursor: pointer;
+  text-align: left;
+  transition: color 160ms ease, border-color 160ms ease,
+              background 160ms ease, transform 120ms ease;
+}
+button.load-sample .load-sample-eyebrow {
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+button.load-sample .load-sample-label {
+  font-family: var(--font-display);
+  font-style: italic;
+  font-variation-settings: "opsz" 24, "SOFT" 100;
+  font-weight: 460;
+  font-size: 1rem;
+  letter-spacing: 0.005em;
+  color: var(--ink-soft);
+}
+button.load-sample .load-sample-hint {
+  font-family: var(--font-body);
+  font-size: 0.82rem;
+  font-style: italic;
+  color: var(--muted);
+}
+button.load-sample:hover {
+  color: var(--rust-deep);
+  border-color: var(--rust);
+  background: var(--paper);
+}
+button.load-sample:hover .load-sample-label { color: var(--rust-deep); }
+button.load-sample:active { transform: translateY(1px); }
+button.load-sample:focus-visible {
+  outline: 2px solid var(--rust);
+  outline-offset: 3px;
+}
+button.load-sample.loading {
+  pointer-events: none;
+  opacity: 0.65;
+}
+
+body.has-data .upload-loader { grid-template-columns: 1fr; }
+body.has-data .upload-loader > .cell:has(button.load-sample) { display: none; }
+
+body.quarto-dark button.load-sample {
+  color: var(--muted);
+  border-color: #4A5759;
+}
+body.quarto-dark button.load-sample .load-sample-label { color: #DEDBD2; }
+body.quarto-dark button.load-sample:hover {
+  color: var(--rose-soft);
+  border-color: var(--rose-soft);
+  background: rgba(237, 175, 184, 0.06);
+}
+body.quarto-dark button.load-sample:hover .load-sample-label {
+  color: var(--rose-soft);
 }
 
 /* ---------- select dropdowns ---------- */
@@ -918,13 +1029,14 @@ main blockquote {
 
 /* ---------- footer ---------- */
 
-.page-footer, footer.footer {
-  border-top: 1px solid var(--rule);
-  background: transparent;
+.page-footer, footer.footer, .nav-footer {
+  background: var(--paper) !important;
+  border-top: none !important;
   color: var(--muted);
   font-size: 0.82rem;
   padding: 1.6rem var(--gutter);
   letter-spacing: 0.02em;
+  font-style: italic;
 }
 
 /* ---------- dark mode (warm "night journal", not blue darkly) ----------
