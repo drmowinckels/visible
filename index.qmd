@@ -191,7 +191,7 @@ dataStatus = {
 ```{ojs}
 //| label: ojs-upload-status
 //| echo: false
-html`<div class="upload-status ${fileText ? 'active' : 'idle'}">
+html`<div class="upload-status ${fileText ? (dataStatus.stage === 'ready' ? 'ready' : 'active') : 'idle'}">
   ${!fileText
     ? html`<em>No file picked yet — choose your <code>visible.csv</code> above, or load the sample data to take it for a spin.</em>`
     : dataStatus.stage === 'ready'
@@ -222,7 +222,7 @@ Once you upload, you'll get a tour through your data in six short chapters: how 
 None of it leaves your machine.
 :::
 
-::: {.analysis-section}
+::: {.setup-cell}
 
 ```{webr}
 #| label: setup-data

@@ -749,8 +749,8 @@ body.quarto-dark .observablehq select {
   color: var(--muted);
   flex-shrink: 0;
 }
-.upload-status.active::before {
-  content: "Working";
+.upload-status.active::before,
+.upload-status.ready::before {
   font-family: var(--font-mono);
   font-size: 0.65rem;
   letter-spacing: 0.22em;
@@ -759,8 +759,14 @@ body.quarto-dark .observablehq select {
   flex-shrink: 0;
   align-self: center;
 }
+.upload-status.active::before { content: "Working"; }
+.upload-status.ready::before {
+  content: "Ready";
+  color: var(--forest);
+}
 
-.upload-status.active {
+.upload-status.active,
+.upload-status.ready {
   border-left-color: var(--rust);
   color: var(--ink);
   background: linear-gradient(
@@ -769,7 +775,17 @@ body.quarto-dark .observablehq select {
     rgba(142, 58, 74, 0) 70%
   );
 }
-.upload-status.active strong { color: var(--rust-deep); font-weight: 600; }
+.upload-status.ready {
+  border-left-color: var(--forest);
+  background: linear-gradient(
+    to right,
+    rgba(63, 94, 69, 0.08) 0%,
+    rgba(63, 94, 69, 0) 70%
+  );
+}
+.upload-status.active strong,
+.upload-status.ready strong { color: var(--rust-deep); font-weight: 600; }
+.upload-status.ready strong { color: var(--forest); }
 
 .upload-status .spinner {
   display: inline-block;
@@ -1126,18 +1142,30 @@ input[type="file"]:focus-visible {
    Empty-state hint is shown only before the user uploads;
    visual treatment lives in the .empty-state-hint block above. */
 
-body:not(.has-data) .analysis-section { display: none; }
-
-/* While R is still booting / parsing, hide chart sections and chapter chrome
-   so users don't see "drawing" loaders for sections that have no data yet.
-   The setup-data cell is hidden too, but display:none does NOT prevent its
-   JavaScript / WebR execution — its STEP/READY text still streams into the
-   DOM and drives the upload-status observer above. */
-body.has-data:not(.data-ready) .analysis-section,
-body.has-data:not(.data-ready) .chapter-num,
-body.has-data:not(.data-ready) main h2.chapter-title,
-body.has-data:not(.data-ready) main .chapter-lede {
+/* Hide chapter scaffolding (analysis sections + chapter chrome) until the
+   data is loaded *and* setup-data has finished. Two cases collapse into one
+   selector: before upload (no .has-data), and during boot/parse
+   (.has-data without .data-ready). */
+body:not(.data-ready) .analysis-section,
+body:not(.data-ready) .chapter-num,
+body:not(.data-ready) main h2.chapter-title,
+body:not(.data-ready) main .chapter-lede {
   display: none;
+}
+
+/* The setup-data cell streams STEP/READY markers via cat() so the OJS
+   upload-status observer can poll its textContent — but the printed
+   stdout is noise to the reader. Keep the cell in the DOM, hide its
+   visible output. visibility:hidden + position:absolute keeps text
+   readable to .textContent scans without taking layout space. */
+.setup-cell {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  clip-path: inset(50%);
+  white-space: nowrap;
 }
 
 .empty-state-hint { display: none; }
