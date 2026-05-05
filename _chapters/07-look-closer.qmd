@@ -337,7 +337,7 @@ if (exists("visible") && nchar(trackerA) > 0 && nchar(trackerB) > 0 &&
       labs(x = sprintf("Days of shift — negative = %s tends to lead", trackerB),
            y = "How well they line up",
            title = "Does one tracker lead the other?",
-           subtitle = "The tallest bar is where the patterns match best") +
+           caption = "The tallest bar is where the patterns match best") +
       viz$theme(base_size = 11)
 
     if (requireNamespace("patchwork", quietly = TRUE)) {
@@ -409,9 +409,8 @@ if (exists("visible_mat_clean") && ncol(visible_mat_clean) >= 5) {
     scale_x_date(date_breaks = "1 month", date_labels = "%b %Y") +
     labs(x = NULL, y = "Trackers behaving unusually",
          title = "Days where many trackers were off at once",
-         subtitle = sprintf(
-           "Bars cross the dashed line on days where at least %d trackers were unusually high or low",
-           threshold)) +
+         subtitle = sprintf("Across your full data · threshold = %d trackers", threshold),
+         caption = "Highlighted bars cross the threshold — many trackers unusually high or low on the same day") +
     viz$theme(base_size = 11)
 }
 ```

@@ -69,9 +69,8 @@ if (exists("visible") && requireNamespace("changepoint", quietly = TRUE)) {
     facet_wrap(~ tracker, scales = "free_y", ncol = 1) +
     labs(x = NULL, y = NULL,
          title = "Moments your baseline shifted",
-         subtitle = sprintf(
-           "Dashed lines mark dates where the typical level moved up or down · up to %d per tracker",
-           cp_Q)) +
+         subtitle = sprintf("Up to %d shifts per tracker, detected across your full data", cp_Q),
+         caption = "Dashed lines mark dates where the typical level moved up or down") +
     viz$theme(base_size = 12)
 
   if (!is.null(cp_df) && nrow(cp_df) > 0) {
@@ -190,10 +189,11 @@ if (exists("visible_mat_clean") && ncol(visible_mat_clean) >= 5) {
     labs(x = NULL,
          y = "How unusual was today?",
          title = "Daily symptom burden over time",
-         subtitle = if (is_multi_year)
+         subtitle = "Combined across all your symptom trackers",
+         caption = if (is_multi_year)
            "Above zero = worse than usual · curve shows the trend · dotted lines mark new years"
          else
-           "Above zero = worse-than-usual day · below = better · the curve shows the underlying trend") +
+           "Above zero = worse than usual · below = better · curve shows the trend") +
     viz$theme(base_size = 13)
 }
 ```

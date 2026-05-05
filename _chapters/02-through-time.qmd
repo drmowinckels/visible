@@ -44,9 +44,13 @@ if (exists("visible")) {
     ))
   }
 
-  subtitle_extra <- if (length(stretch_layers) > 0) {
-    " · green band = most stable stretch · pink band = hardest"
-  } else ""
+  caption_txt <- paste0(
+    "Each dot is a day · the line is a smoothed trend",
+    if (is_multi_year) " · dotted lines mark new years" else "",
+    if (length(stretch_layers) > 0)
+      " · green band = most stable stretch · pink band = hardest"
+    else ""
+  )
 
   visible |>
     filter(tracker %in% c("HR Variability", "Resting HR",
@@ -60,12 +64,8 @@ if (exists("visible")) {
     facet_wrap(~ tracker, scales = "free_y", ncol = 1) +
     labs(x = NULL, y = NULL,
          title = "Core measurements over time",
-         subtitle = paste0(
-           if (is_multi_year)
-             "Each dot is a day · dotted lines mark new years"
-           else
-             "Each dot is a day; the line is a smoothed trend",
-           subtitle_extra)) +
+         subtitle = "Stability, HR Variability and Resting HR across your full timeline",
+         caption = caption_txt) +
     viz$theme(base_size = 13)
 }
 ```
@@ -88,19 +88,23 @@ if (exists("visible")) {
     span <- as.integer(d_range[2] - d_range[1]) + 1L
     logged <- length(unique(stab$odate))
     pct <- round(100 * logged / span)
-    mean_stab <- mean(stab$value, na.rm = TRUE)
+    median_stab <- stats::median(stab$value, na.rm = TRUE)
 
     htmltools::HTML(sprintf(
       paste0(
         '<p class="section-fact">',
         'Stability logged on <strong>%s of %s days</strong> ',
         '(<strong>%s%%</strong> complete). ',
-        'Your overall mean is <strong>%.1f / 5</strong>.',
+        'Your typical day sits at <strong>%.1f / 5</strong> (median). ',
+        'Median is used instead of mean because a handful of unusually ',
+        'good or rough days can drag an average around — the median is ',
+        'the value half your days fall above and half below, so it stays ',
+        'closer to your everyday baseline.',
         '</p>'
       ),
       format(logged, big.mark = ","),
       format(span, big.mark = ","),
-      pct, mean_stab
+      pct, median_stab
     ))
   }
 }
@@ -138,6 +142,8 @@ if (exists("visible")) {
 
   grid <- merge(all_days, stab, by = "odate", all.x = TRUE)
 
+  median_stab <- stats::median(stab$value, na.rm = TRUE)
+
   base <- ggplot(mapping = aes(fill = value)) +
     scale_y_discrete(limits = rev, expand = c(0, 0)) +
     scale_fill_gradient(low = viz$cal_low, high = viz$cal_high,
@@ -147,9 +153,12 @@ if (exists("visible")) {
     labs(x = NULL, y = NULL,
          title = "Stability Score across your timeline",
          subtitle = if (is_multi_year)
-           "One row per year · brighter = more stable · muted tile = no entry"
+           "One row per year · each tile is one day"
          else
-           "Brighter = more stable · muted tile = no entry that day") +
+           "Each tile is one day",
+         caption = sprintf(
+           "Brighter = more stable · muted tile = no entry · median %.1f / 5",
+           median_stab)) +
     viz$theme(base_size = 11) +
     theme(
       panel.grid = element_blank(),

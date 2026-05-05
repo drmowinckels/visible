@@ -212,7 +212,7 @@ html`<div class="upload-status ${fileText ? 'active' : 'idle'}">
             <progress aria-label="Loading your data"></progress>
           </div>
           <div class="upload-status-help">
-            The first load can take a minute or two while R wakes up and parses your file — longer if you've used Visible for several years.
+            R is starting up in your browser, then it'll read the data and build each chart in turn. The first load can take a minute or two — longer if you've used Visible for several years. Feel free to leave this tab open and do something else; it'll keep working in the background and the charts will appear as they're ready.
           </div>`}
 </div>`
 ```

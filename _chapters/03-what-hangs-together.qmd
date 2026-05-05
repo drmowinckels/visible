@@ -95,7 +95,8 @@ if (exists("visible_mat_clean") && ncol(visible_mat_clean) >= 3) {
     coord_equal() +
     labs(x = NULL, y = NULL,
          title = "Which trackers move together?",
-         subtitle = "Warm = rise and fall in step · cool = move opposite · trackers grouped by similarity") +
+         subtitle = "Pairwise correlation across your trackers, ordered by similarity",
+         caption = "Warm = rise and fall in step · cool = move opposite") +
     viz$theme(base_size = 11) +
     theme(
       axis.text.x = element_text(angle = 45, hjust = 1, vjust = 1,
@@ -151,7 +152,8 @@ if (exists("visible_mat_clean") && ncol(visible_mat_clean) >= 3) {
     scale_y_reverse(expand = expansion(mult = c(0.02, 0.45))) +
     scale_x_continuous(expand = expansion(add = 0.6)) +
     labs(title = "Trackers that travel together",
-         subtitle = "Branches joining further right = trackers that move more alike",
+         subtitle = "Hierarchical clustering of your trackers",
+         caption = "Branches joining further right = trackers that move more alike",
          x = NULL, y = NULL) +
     viz$theme(base_size = 11) +
     theme(panel.grid = element_blank(),

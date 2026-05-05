@@ -34,6 +34,7 @@ Hi — I'm [Dr. Athanasia Mo Mowinckel](https://drmowinckels.io).
 I'm a staff scientist at the [Center for Lifespan Changes in Brain and Cognition (LCBC)](https://www.oslobrains.no/) at the University of Oslo, where I lead data management for our research group and the [Lifebrain](https://www.lifebrain.uio.no/) EU project. 
 My PhD is in cognitive neuroscience, and most of my day-to-day is wrangling longitudinal brain-and-behaviour data — usually in R, and developing Research Software.
 
+In 2023 I contracted Covid-19 for the first time, and developed persistent post-viral fatigue after this, consistent with the Post-Covid Condition (also called Long Covid).
 The analyses on this page started as [blog posts](https://drmowinckels.io/tags/longcovid/) where I was working through my own Visible export, trying to make sense of what was happening. 
 This site is the same code, repackaged so you can run it on yours, on your machine, without any of it touching mine.
 
