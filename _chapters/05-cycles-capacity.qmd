@@ -277,7 +277,7 @@ if (exists("visible")) {
 
 ### Functional capacity
 
-The FUNCAP-27 questionnaire asks how limited you've been in eight everyday domains — things like standing, concentrating, socialising, self-care.
+The [FUNCAP-27 questionnaire](https://www.mdpi.com/2077-0383/13/12/3486) asks how limited you've been in eight everyday domains — things like standing, concentrating, socialising, self-care.
 **Higher on the y-axis means more limited.**
 Each panel is one domain.
 The dots are individual days; the curve shows the underlying trend.

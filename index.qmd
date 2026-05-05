@@ -43,7 +43,7 @@ The CSV you upload is processed in-memory on your machine — nothing is sent to
 
 ## Upload your data
 
-Export your data from the Visible app (**Settings → Export Data**), then drop the resulting `visible.csv` here.
+Export your data from the [Visible app](https://www.makevisible.com/) (**Settings → Export Data**), then drop the resulting `visible.csv` here.
 
 ::: {.upload-loader}
 

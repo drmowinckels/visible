@@ -28,7 +28,7 @@ website:
   page-footer:
     border: false
     center: |
-      Built around the Visible app's free-tier export. Pro-tier metrics are not accounted for here. &nbsp;·&nbsp; [v0.1.0](https://github.com/drmowinckels/visible/blob/main/CHANGELOG.md) &nbsp;·&nbsp; [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/)
+      Built around the [Visible app](https://www.makevisible.com/)'s free-tier export. Pro-tier metrics are not accounted for here. &nbsp;·&nbsp; [v0.1.0](https://github.com/drmowinckels/visible/blob/main/CHANGELOG.md) &nbsp;·&nbsp; [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/)
 
 format:
   live-html:
