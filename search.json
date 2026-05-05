@@ -1,10 +1,73 @@
 [
   {
+    "objectID": "CHANGELOG.html",
+    "href": "CHANGELOG.html",
+    "title": "Changelog",
+    "section": "",
+    "text": "All notable changes to Visible Explorer are documented in this file.\nThe format is based on Keep a Changelog, and this project adheres to Semantic Versioning.\n\n\nInitial public release.\n\n\n\nIn-browser analysis of Visible app CSV exports via WebR\nSix chapters covering pacing, recovery, sleep, symptoms, notes, and anomalies\nSample multi-year dataset for exploring without uploading personal data\nCC BY 4.0 license\nPage footer with free-tier notice and version information"
+  },
+  {
+    "objectID": "CHANGELOG.html#section",
+    "href": "CHANGELOG.html#section",
+    "title": "Changelog",
+    "section": "",
+    "text": "Initial public release.\n\n\n\nIn-browser analysis of Visible app CSV exports via WebR\nSix chapters covering pacing, recovery, sleep, symptoms, notes, and anomalies\nSample multi-year dataset for exploring without uploading personal data\nCC BY 4.0 license\nPage footer with free-tier notice and version information"
+  },
+  {
+    "objectID": "about.html",
+    "href": "about.html",
+    "title": "About Visible Explorer",
+    "section": "",
+    "text": "Visible Explorer is a private, in-browser tool for people who use the Visible app to track long COVID, ME/CFS, or related conditions. It lets you upload your own data export and see analyses adapted from blog posts by Dr. Mowinckel — without your data ever leaving your computer."
+  },
+  {
+    "objectID": "about.html#what-is-this",
+    "href": "about.html#what-is-this",
+    "title": "About Visible Explorer",
+    "section": "",
+    "text": "Visible Explorer is a private, in-browser tool for people who use the Visible app to track long COVID, ME/CFS, or related conditions. It lets you upload your own data export and see analyses adapted from blog posts by Dr. Mowinckel — without your data ever leaving your computer."
+  },
+  {
+    "objectID": "about.html#how-is-it-private",
+    "href": "about.html#how-is-it-private",
+    "title": "About Visible Explorer",
+    "section": "How is it private?",
+    "text": "How is it private?\nEvery analysis runs locally inside your browser using WebR, a build of R that runs as WebAssembly. When you select a CSV file, it’s read into memory in your browser tab. There is no upload to a server, no cookie, no tracking. Close the tab and the data is gone.\nYou can verify this by opening your browser’s developer tools (Network tab) and watching: the only requests are for static page assets and the WebR runtime files. None of them carry your CSV."
+  },
+  {
+    "objectID": "about.html#how-do-i-get-my-data-out-of-visible",
+    "href": "about.html#how-do-i-get-my-data-out-of-visible",
+    "title": "About Visible Explorer",
+    "section": "How do I get my data out of Visible?",
+    "text": "How do I get my data out of Visible?\nIn the Visible app: Settings → Export Data. You’ll receive a visible.csv file. That’s the file to upload here."
+  },
+  {
+    "objectID": "about.html#who-made-this",
+    "href": "about.html#who-made-this",
+    "title": "About Visible Explorer",
+    "section": "Who made this",
+    "text": "Who made this\nHi — I’m Dr. Athanasia Mo Mowinckel. I’m a staff scientist at the Center for Lifespan Changes in Brain and Cognition (LCBC) at the University of Oslo, where I lead data management for our research group and the Lifebrain EU project. My PhD is in cognitive neuroscience, and most of my day-to-day is wrangling longitudinal brain-and-behaviour data — usually in R, and developing Research Software.\nIn 2023 I contracted Covid-19 for the first time, and developed persistent post-viral fatigue after this, consistent with the Post-Covid Condition (also called Long Covid). The analyses on this page started as blog posts where I was working through my own Visible export, trying to make sense of what was happening. This site is the same code, repackaged so you can run it on yours, on your machine, without any of it touching mine."
+  },
+  {
+    "objectID": "about.html#credits",
+    "href": "about.html#credits",
+    "title": "About Visible Explorer",
+    "section": "Credits",
+    "text": "Credits\n\nBrowser-side R via r-wasm/webr and the r-wasm/quarto-live Quarto extension.\nVisible is a trademark of Visible Health Inc.; this site is independent and not affiliated."
+  },
+  {
+    "objectID": "about.html#disclaimer",
+    "href": "about.html#disclaimer",
+    "title": "About Visible Explorer",
+    "section": "Disclaimer",
+    "text": "Disclaimer\nThis is not a medical tool. The analyses are exploratory and personal. Decisions about your health should be made with your clinician."
+  },
+  {
     "objectID": "index.html#upload-your-data",
     "href": "index.html#upload-your-data",
     "title": "Visible Explorer",
     "section": "Upload your data",
-    "text": "Upload your data\nExport your data from the Visible app (Settings → Export Data), then drop the resulting visible.csv here.\n\n\nviewof file = Inputs.file({\n  label: \"Visible CSV export\",\n  accept: \".csv,.txt\"\n})\n\n\n\n\n\n\n\nviewof sampleClick = {\n  const btn = html`&lt;button type=\"button\" class=\"load-sample\" aria-label=\"Load sample data\"&gt;\n    &lt;span class=\"load-sample-eyebrow\"&gt;Or try it first&lt;/span&gt;\n    &lt;span class=\"load-sample-label\"&gt;Load sample data&lt;/span&gt;\n    &lt;span class=\"load-sample-hint\"&gt;three years of synthetic tracking&lt;/span&gt;\n  &lt;/button&gt;`;\n  let count = 0;\n  btn.value = 0;\n  btn.addEventListener('click', () =&gt; {\n    count += 1;\n    btn.value = count;\n    btn.classList.add('loading');\n    btn.dispatchEvent(new CustomEvent('input', { bubbles: true }));\n  });\n  return btn;\n}\n\n\n\n\n\n\n\n\nsampleText = {\n  if (!(Number(sampleClick) &gt; 0)) return \"\";\n  const r = await fetch('sample-visible-multiyear.csv');\n  if (!r.ok) throw new Error(`Sample CSV failed to load (${r.status})`);\n  return await r.text();\n}\n\n\n\n\n\n\n\nfileText = file ? await file.text() : sampleText\n\n\n\n\n\n\n\nhasData = {\n  if (fileText) {\n    document.body.classList.add('has-data');\n  } else {\n    document.body.classList.remove('has-data');\n  }\n  return fileText ? true : false;\n}\n\n\n\n\n\n\n\ndarkMode = Generators.observe(notify =&gt; {\n  const read = () =&gt; notify(document.body.classList.contains('quarto-dark'));\n  read();\n  const obs = new MutationObserver(read);\n  obs.observe(document.body, { attributes: true, attributeFilter: ['class'] });\n  return () =&gt; obs.disconnect();\n})\n\n\n\n\n\n\n\ndataReadyClass = {\n  if (dataStatus && dataStatus.stage === 'ready') {\n    document.body.classList.add('data-ready');\n  } else {\n    document.body.classList.remove('data-ready');\n  }\n  return null;\n}\n\n\n\n\n\n\n\ndataStatus = {\n  if (!fileText) return { stage: 'idle' };\n  return Generators.observe(notify =&gt; {\n    notify({ stage: 'loading', message: 'Booting R…' });\n    let lastMessage = 'Booting R…';\n    const allLines = () =&gt; {\n      const cells = document.querySelectorAll('[id^=\"webr-\"]');\n      const out = [];\n      cells.forEach(c =&gt; {\n        c.textContent.split(/\\r?\\n/).forEach(l =&gt; {\n          const t = l.trim();\n          if (t.length &gt; 0) out.push(t);\n        });\n      });\n      return out;\n    };\n    const check = () =&gt; {\n      const lines = allLines();\n      const readyLine = [...lines].reverse().find(l =&gt; l.startsWith('READY '));\n      if (readyLine) {\n        notify({ stage: 'ready', message: readyLine.replace(/^READY\\s+/, '') });\n        obs.disconnect();\n        clearInterval(interval);\n        return;\n      }\n      const stepLine = [...lines].reverse().find(l =&gt; l.startsWith('STEP '));\n      if (stepLine) {\n        const msg = stepLine.replace(/^STEP\\s+/, '');\n        if (msg !== lastMessage) {\n          lastMessage = msg;\n          notify({ stage: 'loading', message: msg });\n        }\n      }\n    };\n    const obs = new MutationObserver(check);\n    obs.observe(document.body, {\n      childList: true, subtree: true, characterData: true\n    });\n    const interval = setInterval(check, 300);\n    check();\n    return () =&gt; { obs.disconnect(); clearInterval(interval); };\n  });\n}\n\n\n\n\n\n\n\nhtml`&lt;div class=\"upload-status ${fileText ? 'active' : 'idle'}\"&gt;\n  ${!fileText\n    ? html`&lt;em&gt;No file picked yet — choose your &lt;code&gt;visible.csv&lt;/code&gt; above, or load the sample data to take it for a spin.&lt;/em&gt;`\n    : dataStatus.stage === 'ready'\n      ? html`\n          &lt;div class=\"upload-status-row\"&gt;\n            &lt;span class=\"upload-check\" aria-hidden=\"true\"&gt;✓&lt;/span&gt;\n            &lt;strong&gt;Your data is loaded.&lt;/strong&gt;\n          &lt;/div&gt;\n          &lt;div class=\"upload-status-help\"&gt;\n            ${dataStatus.message} Charts are filling in below as each one finishes.\n          &lt;/div&gt;`\n      : html`\n          &lt;div class=\"upload-status-row\"&gt;\n            &lt;span class=\"spinner\"&gt;&lt;/span&gt;\n            &lt;strong&gt;${dataStatus.message}&lt;/strong&gt;\n          &lt;/div&gt;\n          &lt;div class=\"upload-progress\"&gt;\n            &lt;progress aria-label=\"Loading your data\"&gt;&lt;/progress&gt;\n          &lt;/div&gt;\n          &lt;div class=\"upload-status-help\"&gt;\n            The first load can take a minute or two while R wakes up and parses your file — longer if you've used Visible for several years.\n          &lt;/div&gt;`}\n&lt;/div&gt;`\n\n\n\n\n\n\n\nOnce you upload, you’ll get a tour through your data in six short chapters: how much you’ve been logging and where, how your stability and heart-rate measures have moved over time, which trackers tend to travel together, when things seemed to shift, how your menstrual cycle and functional capacity look, and tools to dig into a single tracker, compare two, or revisit your toughest days. None of it leaves your machine.\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\nChapter I"
+    "text": "Upload your data\nExport your data from the Visible app (Settings → Export Data), then drop the resulting visible.csv here.\n\n\nviewof file = Inputs.file({\n  label: \"Visible CSV export\",\n  accept: \".csv,.txt\"\n})\n\n\n\n\n\n\n\nviewof sampleClick = {\n  const btn = html`&lt;button type=\"button\" class=\"load-sample\" aria-label=\"Load sample data\"&gt;\n    &lt;span class=\"load-sample-eyebrow\"&gt;Or try it first&lt;/span&gt;\n    &lt;span class=\"load-sample-label\"&gt;Load sample data&lt;/span&gt;\n    &lt;span class=\"load-sample-hint\"&gt;three years of synthetic tracking&lt;/span&gt;\n  &lt;/button&gt;`;\n  let count = 0;\n  btn.value = 0;\n  btn.addEventListener('click', () =&gt; {\n    count += 1;\n    btn.value = count;\n    btn.classList.add('loading');\n    btn.dispatchEvent(new CustomEvent('input', { bubbles: true }));\n  });\n  return btn;\n}\n\n\n\n\n\n\n\n\nsampleText = {\n  if (!(Number(sampleClick) &gt; 0)) return \"\";\n  const r = await fetch('sample-visible-multiyear.csv');\n  if (!r.ok) throw new Error(`Sample CSV failed to load (${r.status})`);\n  return await r.text();\n}\n\n\n\n\n\n\n\nfileText = file ? await file.text() : sampleText\n\n\n\n\n\n\n\nhasData = {\n  if (fileText) {\n    document.body.classList.add('has-data');\n  } else {\n    document.body.classList.remove('has-data');\n  }\n  return fileText ? true : false;\n}\n\n\n\n\n\n\n\ndarkMode = Generators.observe(notify =&gt; {\n  const read = () =&gt; notify(document.body.classList.contains('quarto-dark'));\n  read();\n  const obs = new MutationObserver(read);\n  obs.observe(document.body, { attributes: true, attributeFilter: ['class'] });\n  return () =&gt; obs.disconnect();\n})\n\n\n\n\n\n\n\ndataReadyClass = {\n  if (dataStatus && dataStatus.stage === 'ready') {\n    document.body.classList.add('data-ready');\n  } else {\n    document.body.classList.remove('data-ready');\n  }\n  return null;\n}\n\n\n\n\n\n\n\ndataStatus = {\n  if (!fileText) return { stage: 'idle' };\n  return Generators.observe(notify =&gt; {\n    notify({ stage: 'loading', message: 'Booting R…' });\n    let lastMessage = 'Booting R…';\n    const allLines = () =&gt; {\n      const cells = document.querySelectorAll('[id^=\"webr-\"]');\n      const out = [];\n      cells.forEach(c =&gt; {\n        c.textContent.split(/\\r?\\n/).forEach(l =&gt; {\n          const t = l.trim();\n          if (t.length &gt; 0) out.push(t);\n        });\n      });\n      return out;\n    };\n    const check = () =&gt; {\n      const lines = allLines();\n      const readyLine = [...lines].reverse().find(l =&gt; l.startsWith('READY '));\n      if (readyLine) {\n        notify({ stage: 'ready', message: readyLine.replace(/^READY\\s+/, '') });\n        obs.disconnect();\n        clearInterval(interval);\n        return;\n      }\n      const stepLine = [...lines].reverse().find(l =&gt; l.startsWith('STEP '));\n      if (stepLine) {\n        const msg = stepLine.replace(/^STEP\\s+/, '');\n        if (msg !== lastMessage) {\n          lastMessage = msg;\n          notify({ stage: 'loading', message: msg });\n        }\n      }\n    };\n    const obs = new MutationObserver(check);\n    obs.observe(document.body, {\n      childList: true, subtree: true, characterData: true\n    });\n    const interval = setInterval(check, 300);\n    check();\n    return () =&gt; { obs.disconnect(); clearInterval(interval); };\n  });\n}\n\n\n\n\n\n\n\nhtml`&lt;div class=\"upload-status ${fileText ? 'active' : 'idle'}\"&gt;\n  ${!fileText\n    ? html`&lt;em&gt;No file picked yet — choose your &lt;code&gt;visible.csv&lt;/code&gt; above, or load the sample data to take it for a spin.&lt;/em&gt;`\n    : dataStatus.stage === 'ready'\n      ? html`\n          &lt;div class=\"upload-status-row\"&gt;\n            &lt;span class=\"upload-check\" aria-hidden=\"true\"&gt;✓&lt;/span&gt;\n            &lt;strong&gt;Your data is loaded.&lt;/strong&gt;\n          &lt;/div&gt;\n          &lt;div class=\"upload-status-help\"&gt;\n            ${dataStatus.message} Charts are filling in below as each one finishes.\n          &lt;/div&gt;`\n      : html`\n          &lt;div class=\"upload-status-row\"&gt;\n            &lt;span class=\"spinner\"&gt;&lt;/span&gt;\n            &lt;strong&gt;${dataStatus.message}&lt;/strong&gt;\n          &lt;/div&gt;\n          &lt;div class=\"upload-progress\"&gt;\n            &lt;progress aria-label=\"Loading your data\"&gt;&lt;/progress&gt;\n          &lt;/div&gt;\n          &lt;div class=\"upload-status-help\"&gt;\n            R is starting up in your browser, then it'll read the data and build each chart in turn. The first load can take a minute or two — longer if you've used Visible for several years. Feel free to leave this tab open and do something else; it'll keep working in the background and the charts will appear as they're ready.\n          &lt;/div&gt;`}\n&lt;/div&gt;`\n\n\n\n\n\n\n\nOnce you upload, you’ll get a tour through your data in six short chapters: how much you’ve been logging and where, how your stability and heart-rate measures have moved over time, which trackers tend to travel together, when things seemed to shift, how your menstrual cycle and functional capacity look, and tools to dig into a single tracker, compare two, or revisit your toughest days. None of it leaves your machine.\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\nChapter I"
   },
   {
     "objectID": "index.html#a-first-glance",
@@ -68,54 +131,5 @@
     "title": "Visible Explorer",
     "section": "What’s next",
     "text": "What’s next\nThis is a living tool — I’ll keep adding lenses as the science (and your suggestions) push it forward. If there’s a chart you wish you could see, the GitHub Issues is the place to ask.\n\n  \n    \n    \n    \n  \n  Print report"
-  },
-  {
-    "objectID": "about.html",
-    "href": "about.html",
-    "title": "About Visible Explorer",
-    "section": "",
-    "text": "Visible Explorer is a private, in-browser tool for people who use the Visible app to track long COVID, ME/CFS, or related conditions. It lets you upload your own data export and see analyses adapted from blog posts by Dr. Mowinckel — without your data ever leaving your computer."
-  },
-  {
-    "objectID": "about.html#what-is-this",
-    "href": "about.html#what-is-this",
-    "title": "About Visible Explorer",
-    "section": "",
-    "text": "Visible Explorer is a private, in-browser tool for people who use the Visible app to track long COVID, ME/CFS, or related conditions. It lets you upload your own data export and see analyses adapted from blog posts by Dr. Mowinckel — without your data ever leaving your computer."
-  },
-  {
-    "objectID": "about.html#how-is-it-private",
-    "href": "about.html#how-is-it-private",
-    "title": "About Visible Explorer",
-    "section": "How is it private?",
-    "text": "How is it private?\nEvery analysis runs locally inside your browser using WebR, a build of R that runs as WebAssembly. When you select a CSV file, it’s read into memory in your browser tab. There is no upload to a server, no cookie, no tracking. Close the tab and the data is gone.\nYou can verify this by opening your browser’s developer tools (Network tab) and watching: the only requests are for static page assets and the WebR runtime files. None of them carry your CSV."
-  },
-  {
-    "objectID": "about.html#how-do-i-get-my-data-out-of-visible",
-    "href": "about.html#how-do-i-get-my-data-out-of-visible",
-    "title": "About Visible Explorer",
-    "section": "How do I get my data out of Visible?",
-    "text": "How do I get my data out of Visible?\nIn the Visible app: Settings → Export Data. You’ll receive a visible.csv file. That’s the file to upload here."
-  },
-  {
-    "objectID": "about.html#who-made-this",
-    "href": "about.html#who-made-this",
-    "title": "About Visible Explorer",
-    "section": "Who made this",
-    "text": "Who made this\nHi — I’m Dr. Athanasia Mo Mowinckel. I’m a staff scientist at the Center for Lifespan Changes in Brain and Cognition (LCBC) at the University of Oslo, where I lead data management for our research group and the Lifebrain EU project. My PhD is in cognitive neuroscience, and most of my day-to-day is wrangling longitudinal brain-and-behaviour data — usually in R, and developing Research Software.\nThe analyses on this page started as blog posts where I was working through my own Visible export, trying to make sense of what was happening. This site is the same code, repackaged so you can run it on yours, on your machine, without any of it touching mine."
-  },
-  {
-    "objectID": "about.html#credits",
-    "href": "about.html#credits",
-    "title": "About Visible Explorer",
-    "section": "Credits",
-    "text": "Credits\n\nBrowser-side R via r-wasm/webr and the r-wasm/quarto-live Quarto extension.\nVisible is a trademark of Visible Health Inc.; this site is independent and not affiliated."
-  },
-  {
-    "objectID": "about.html#disclaimer",
-    "href": "about.html#disclaimer",
-    "title": "About Visible Explorer",
-    "section": "Disclaimer",
-    "text": "Disclaimer\nThis is not a medical tool. The analyses are exploratory and personal. Decisions about your health should be made with your clinician."
   }
 ]

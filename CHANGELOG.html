@@ -7,7 +7,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
 
 
-<title>About Visible Explorer – Visible Explorer</title>
+<title>changelog – Visible Explorer</title>
 <style>
 /* Default styles provided by pandoc.
 ** See https://pandoc.org/MANUAL.html#variables-for-html for config info.
@@ -276,7 +276,7 @@ ul.task-list li input[type="checkbox"] {
 <span class="menu-text">Explore</span></a>
   </li>  
   <li class="nav-item">
-    <a class="nav-link active" href="./about.html" aria-current="page"> 
+    <a class="nav-link" href="./about.html"> 
 <span class="menu-text">About</span></a>
   </li>  
 </ul>
@@ -303,66 +303,39 @@ ul.task-list li input[type="checkbox"] {
     <h2 id="toc-title">On this page</h2>
    
   <ul>
-  <li><a href="#what-is-this" id="toc-what-is-this" class="nav-link active" data-scroll-target="#what-is-this">What is this?</a></li>
-  <li><a href="#how-is-it-private" id="toc-how-is-it-private" class="nav-link" data-scroll-target="#how-is-it-private">How is it private?</a></li>
-  <li><a href="#how-do-i-get-my-data-out-of-visible" id="toc-how-do-i-get-my-data-out-of-visible" class="nav-link" data-scroll-target="#how-do-i-get-my-data-out-of-visible">How do I get my data out of Visible?</a></li>
-  <li><a href="#who-made-this" id="toc-who-made-this" class="nav-link" data-scroll-target="#who-made-this">Who made this</a></li>
-  <li><a href="#credits" id="toc-credits" class="nav-link" data-scroll-target="#credits">Credits</a></li>
-  <li><a href="#disclaimer" id="toc-disclaimer" class="nav-link" data-scroll-target="#disclaimer">Disclaimer</a></li>
+  <li><a href="#changelog" id="toc-changelog" class="nav-link active" data-scroll-target="#changelog">Changelog</a>
+  <ul class="collapse">
+  <li><a href="#section" id="toc-section" class="nav-link" data-scroll-target="#section">0.1.0 - 2026-05-05</a>
+  <ul class="collapse">
+  <li><a href="#added" id="toc-added" class="nav-link" data-scroll-target="#added">Added</a></li>
+  </ul></li>
+  </ul></li>
   </ul>
 </nav>
     </div>
 <!-- main -->
-<main class="content column-page-left" id="quarto-document-content">
-
-
-<header id="title-block-header" class="quarto-title-block default">
-<div class="quarto-title">
-<h1 class="title">About Visible Explorer</h1>
-</div>
+<main class="content column-page-left" id="quarto-document-content"><header id="title-block-header" class="quarto-title-block"></header>
 
 
 
-<div class="quarto-title-meta column-page-left">
-
-    
-  
-    
-  </div>
-  
 
 
-</header>
-
-
-<section id="what-is-this" class="level2">
-<h2 class="anchored" data-anchor-id="what-is-this">What is this?</h2>
-<p>Visible Explorer is a private, in-browser tool for people who use the <a href="https://www.makevisible.com/">Visible app</a> to track long COVID, ME/CFS, or related conditions. It lets you upload your own data export and see analyses adapted from blog posts by <a href="https://drmowinckels.io">Dr.&nbsp;Mowinckel</a> — without your data ever leaving your computer.</p>
-</section>
-<section id="how-is-it-private" class="level2">
-<h2 class="anchored" data-anchor-id="how-is-it-private">How is it private?</h2>
-<p>Every analysis runs locally inside your browser using <a href="https://docs.r-wasm.org/webr/">WebR</a>, a build of R that runs as WebAssembly. When you select a CSV file, it’s read into memory in your browser tab. There is no upload to a server, no cookie, no tracking. Close the tab and the data is gone.</p>
-<p>You can verify this by opening your browser’s developer tools (Network tab) and watching: the only requests are for static page assets and the WebR runtime files. None of them carry your CSV.</p>
-</section>
-<section id="how-do-i-get-my-data-out-of-visible" class="level2">
-<h2 class="anchored" data-anchor-id="how-do-i-get-my-data-out-of-visible">How do I get my data out of Visible?</h2>
-<p>In the Visible app: <strong>Settings → Export Data</strong>. You’ll receive a <code>visible.csv</code> file. That’s the file to upload here.</p>
-</section>
-<section id="who-made-this" class="level2">
-<h2 class="anchored" data-anchor-id="who-made-this">Who made this</h2>
-<p>Hi — I’m <a href="https://drmowinckels.io">Dr.&nbsp;Athanasia Mo Mowinckel</a>. I’m a staff scientist at the <a href="https://www.oslobrains.no/">Center for Lifespan Changes in Brain and Cognition (LCBC)</a> at the University of Oslo, where I lead data management for our research group and the <a href="https://www.lifebrain.uio.no/">Lifebrain</a> EU project. My PhD is in cognitive neuroscience, and most of my day-to-day is wrangling longitudinal brain-and-behaviour data — usually in R, and developing Research Software.</p>
-<p>In 2023 I contracted Covid-19 for the first time, and developed persistent post-viral fatigue after this, consistent with the Post-Covid Condition (also called Long Covid). The analyses on this page started as <a href="https://drmowinckels.io/tags/longcovid/">blog posts</a> where I was working through my own Visible export, trying to make sense of what was happening. This site is the same code, repackaged so you can run it on yours, on your machine, without any of it touching mine.</p>
-</section>
-<section id="credits" class="level2">
-<h2 class="anchored" data-anchor-id="credits">Credits</h2>
+<section id="changelog" class="level1">
+<h1>Changelog</h1>
+<p>All notable changes to Visible Explorer are documented in this file.</p>
+<p>The format is based on <a href="https://keepachangelog.com/en/1.1.0/">Keep a Changelog</a>, and this project adheres to <a href="https://semver.org/spec/v2.0.0.html">Semantic Versioning</a>.</p>
+<section id="section" class="level2">
+<h2 class="anchored" data-anchor-id="section"><a href="https://github.com/drmowinckels/visible/releases/tag/v0.1.0">0.1.0</a> - 2026-05-05</h2>
+<p>Initial public release.</p>
+<section id="added" class="level3">
+<h3 class="anchored" data-anchor-id="added">Added</h3>
 <ul>
-<li>Browser-side R via <a href="https://github.com/r-wasm/webr">r-wasm/webr</a> and the <a href="https://github.com/r-wasm/quarto-live">r-wasm/quarto-live</a> Quarto extension.</li>
-<li>Visible is a trademark of Visible Health Inc.; this site is independent and not affiliated.</li>
+<li>In-browser analysis of Visible app CSV exports via WebR</li>
+<li>Six chapters covering pacing, recovery, sleep, symptoms, notes, and anomalies</li>
+<li>Sample multi-year dataset for exploring without uploading personal data</li>
+<li>CC BY 4.0 license</li>
+<li>Page footer with free-tier notice and version information</li>
 </ul>
-</section>
-<section id="disclaimer" class="level2">
-<h2 class="anchored" data-anchor-id="disclaimer">Disclaimer</h2>
-<p>This is not a medical tool. The analyses are exploratory and personal. Decisions about your health should be made with your clinician.</p>
 
 
 <script type="ojs-module-contents">
@@ -379,6 +352,8 @@ eyJjb250ZW50cyI6W119
 <script type="vfs-file">
 W10=
 </script>
+</section>
+</section>
 </section>
 
 </main> <!-- /main -->
