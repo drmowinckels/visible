@@ -1,0 +1,96 @@
+{
+  "@context": "https://w3id.org/codemeta/3.0",
+  "@type": "SoftwareSourceCode",
+  "identifier": "visible-explorer",
+  "name": "Visible Explorer",
+  "description": "A private, in-browser tool for Visible app users to upload their CSV export and explore long COVID / ME-CFS tracking analyses. All R code runs locally in the browser via WebR — no data leaves the user's device.",
+  "codeRepository": "https://github.com/drmowinckels/visible",
+  "issueTracker": "https://github.com/drmowinckels/visible/issues",
+  "license": "https://spdx.org/licenses/CC-BY-4.0",
+  "version": "0.1.0",
+  "datePublished": "2026-05-04",
+  "dateModified": "2026-05-04",
+  "dateCreated": "2026-05-04",
+  "applicationCategory": "Health",
+  "developmentStatus": "active",
+  "isAccessibleForFree": true,
+  "keywords": [
+    "long-covid",
+    "me-cfs",
+    "post-viral-fatigue",
+    "self-tracking",
+    "pacing",
+    "symptom-tracking",
+    "webr",
+    "quarto",
+    "r",
+    "webassembly",
+    "privacy-preserving"
+  ],
+  "programmingLanguage": [
+    {
+      "@type": "ComputerLanguage",
+      "name": "R",
+      "url": "https://www.r-project.org/"
+    }
+  ],
+  "runtimePlatform": [
+    "WebR",
+    "WebAssembly"
+  ],
+  "softwareRequirements": [
+    {
+      "@type": "SoftwareApplication",
+      "identifier": "quarto",
+      "name": "Quarto",
+      "url": "https://quarto.org"
+    },
+    {
+      "@type": "SoftwareApplication",
+      "identifier": "quarto-live",
+      "name": "quarto-live",
+      "url": "https://github.com/r-wasm/quarto-live"
+    },
+    {
+      "@type": "SoftwareApplication",
+      "identifier": "webr",
+      "name": "WebR",
+      "url": "https://docs.r-wasm.org/webr/"
+    }
+  ],
+  "author": [
+    {
+      "@type": "Person",
+      "@id": "https://orcid.org/0000-0002-5756-0223",
+      "givenName": "Athanasia Monika",
+      "familyName": "Mowinckel",
+      "email": "athanasiamo@gmail.com",
+      "url": "https://drmowinckels.io",
+      "affiliation": {
+        "@type": "Organization",
+        "name": "Center for Lifespan Changes in Brain and Cognition (LCBC), University of Oslo",
+        "url": "https://www.oslobrains.no/"
+      }
+    }
+  ],
+  "maintainer": [
+    {
+      "@type": "Person",
+      "@id": "https://orcid.org/0000-0002-5756-0223",
+      "givenName": "Athanasia Monika",
+      "familyName": "Mowinckel",
+      "email": "athanasiamo@gmail.com",
+      "url": "https://drmowinckels.io"
+    }
+  ],
+  "copyrightHolder": [
+    {
+      "@type": "Person",
+      "givenName": "Athanasia Monika",
+      "familyName": "Mowinckel"
+    }
+  ],
+  "copyrightYear": 2026,
+  "readme": "https://github.com/drmowinckels/visible/blob/main/README.md",
+  "releaseNotes": "https://github.com/drmowinckels/visible/blob/main/CHANGELOG.md"
+}

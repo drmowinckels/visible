@@ -27,3 +27,14 @@ Output goes to `_site/`. Deploy as a static site (Netlify, GitHub Pages, etc.).
 ## Sample data
 
 `sample-visible.csv` is a real export used during development. Not committed if you keep `.gitignore` defaults.
+
+## Releasing
+
+When cutting a new version, update these in lockstep:
+
+- `CHANGELOG.md` — new section with date and changes
+- `codemeta.json` — `version`, `dateModified`, and (if a release) `datePublished`
+- `CITATION.cff` — `version` and `date-released`
+- `_quarto.yml` — version string in the page footer
+
+Then tag the commit `vX.Y.Z` and create a matching GitHub release.

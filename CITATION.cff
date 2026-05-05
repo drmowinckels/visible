@@ -1,0 +1,29 @@
+cff-version: 1.2.0
+message: "If you use Visible Explorer in research or writing, please cite it as below."
+title: "Visible Explorer"
+abstract: "A private, in-browser tool for Visible app users to upload their CSV export and explore long COVID / ME-CFS tracking analyses. All R code runs locally in the browser via WebR — no data leaves the user's device."
+type: software
+authors:
+  - given-names: "Athanasia Monika"
+    family-names: "Mowinckel"
+    email: "athanasiamo@gmail.com"
+    website: "https://drmowinckels.io"
+    affiliation: "Center for Lifespan Changes in Brain and Cognition (LCBC), University of Oslo"
+    orcid: "https://orcid.org/0000-0002-5756-0223"
+repository-code: "https://github.com/drmowinckels/visible"
+url: "https://github.com/drmowinckels/visible"
+license: CC-BY-4.0
+version: "0.1.0"
+date-released: "2026-05-04"
+keywords:
+  - long-covid
+  - me-cfs
+  - post-viral-fatigue
+  - self-tracking
+  - pacing
+  - symptom-tracking
+  - webr
+  - quarto
+  - r
+  - webassembly
+  - privacy-preserving
